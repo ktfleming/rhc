@@ -1,4 +1,4 @@
-use failure::Error;
+use anyhow;
 use reqwest;
 use serde::Deserialize;
 use std::fs;
@@ -52,7 +52,7 @@ pub struct RequestDefinition {
 }
 
 impl RequestDefinition {
-    pub fn new(path: &PathBuf) -> Result<RequestDefinition, Error> {
+    pub fn new(path: &PathBuf) -> anyhow::Result<RequestDefinition> {
         let contents = fs::read_to_string(path)?;
 
         let request_def = toml::from_str(&contents)?;

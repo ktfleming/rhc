@@ -1,11 +1,11 @@
 use crate::request_definition::RequestDefinition;
 use crate::response::Response;
-use failure::Error;
+use anyhow;
 use reqwest::blocking;
 
 /// Given a RequestDefinition, construct and send a request and
 /// return our Response model
-pub fn send_request(mut def: RequestDefinition) -> Result<Response, Error> {
+pub fn send_request(mut def: RequestDefinition) -> anyhow::Result<Response> {
     let client = blocking::Client::new();
     let url = reqwest::Url::parse(&def.request.url)?;
     let mut req = client.request(def.request.method.to_reqwest_method(), url);
@@ -21,7 +21,7 @@ pub fn send_request(mut def: RequestDefinition) -> Result<Response, Error> {
 }
 
 /// Transform a reqwest Response into our own Response
-fn transform_response(res: blocking::Response) -> Result<Response, Error> {
+fn transform_response(res: blocking::Response) -> anyhow::Result<Response> {
     let status_code = res.status();
     let body = res.text()?;
 
