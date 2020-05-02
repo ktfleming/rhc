@@ -1,0 +1,10 @@
+[request]
+url = "https://httpbin.org/post"
+method = "POST"
+
+[body]
+content_type = "application/x-www-form-urlencoded"
+content = '''
+field1=value1&field2=value2'''
+
+
