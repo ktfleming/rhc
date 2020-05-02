@@ -1,5 +1,5 @@
 [metadata]
-name = "Bad 1"
+name = "Bad method"
 
 [request]
 url = "http://example.com"

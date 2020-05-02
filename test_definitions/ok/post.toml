@@ -1,0 +1,20 @@
+[metadata]
+name = "httpbin post"
+
+[request]
+url = "https://httpbin.org/post"
+method = "Post"
+
+[body]
+content_type = "application/json"
+content = '''
+{
+  "some_key": "some value",
+  "a_number": 123,
+  "nested": {
+    "inside": true,
+    "other": null
+  }
+}
+'''
+

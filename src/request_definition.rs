@@ -39,9 +39,16 @@ pub struct Request {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct Body {
+    pub content_type: String,
+    pub content: String,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct RequestDefinition {
-    metadata: Metadata,
+    metadata: Option<Metadata>,
     pub request: Request,
+    pub body: Option<Body>,
 }
 
 impl RequestDefinition {
@@ -55,14 +62,29 @@ impl RequestDefinition {
 }
 
 #[test]
-fn test_new_ok() {
-    RequestDefinition::new(&PathBuf::from("test_definitions/ok/ok1.toml")).unwrap();
-    ()
+fn test_ok_files() {
+    for entry in fs::read_dir("test_definitions/ok").unwrap() {
+        let path = entry.unwrap().path();
+
+        let result = RequestDefinition::new(&path);
+        assert!(
+            result.is_ok(),
+            "expected file {:?} to be OK, but it errored",
+            path.to_string_lossy()
+        );
+    }
 }
 
 #[test]
-#[should_panic]
-fn test_new_bad() {
-    RequestDefinition::new(&PathBuf::from("test_definitions/bad/bad1.toml")).unwrap();
-    ()
+fn test_bad_files() {
+    for entry in fs::read_dir("test_definitions/bad").unwrap() {
+        let path = entry.unwrap().path();
+
+        let result = RequestDefinition::new(&path);
+        assert!(
+            result.is_err(),
+            "expected file {:?} to error, but it was OK",
+            path.to_string_lossy()
+        );
+    }
 }

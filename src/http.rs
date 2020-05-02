@@ -5,10 +5,15 @@ use reqwest::blocking;
 
 /// Given a RequestDefinition, construct and send a request and
 /// return our Response model
-pub fn send_request(def: &RequestDefinition) -> Result<Response, Error> {
+pub fn send_request(mut def: RequestDefinition) -> Result<Response, Error> {
     let client = blocking::Client::new();
     let url = reqwest::Url::parse(&def.request.url)?;
-    let req = client.request(def.request.method.to_reqwest_method(), url);
+    let mut req = client.request(def.request.method.to_reqwest_method(), url);
+    if let Some(body) = def.body.take() {
+        req = req
+            .body(body.content)
+            .header("Content-Type", body.content_type);
+    }
     let res = req.send()?;
     let res = transform_response(res)?;
 
