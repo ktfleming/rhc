@@ -1,0 +1,7 @@
+[metadata]
+name = "Bad 1"
+
+[request]
+url = "http://example.com"
+method = "Not a method"
+

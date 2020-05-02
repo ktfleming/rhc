@@ -1,0 +1,7 @@
+[metadata]
+name = "OK 1"
+
+[request]
+url = "http://example.com"
+method = "Get"
+
