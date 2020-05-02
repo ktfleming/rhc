@@ -3,5 +3,5 @@ name = "httpbin get"
 
 [request]
 url = "https://httpbin.org/get"
-method = "Get"
+method = "GET"
 

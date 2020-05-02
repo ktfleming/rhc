@@ -3,7 +3,7 @@ name = "httpbin post"
 
 [request]
 url = "https://httpbin.org/post"
-method = "Post"
+method = "POST"
 
 [body]
 content_type = "application/json"

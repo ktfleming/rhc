@@ -3,5 +3,5 @@ name = "Bad method"
 
 [request]
 url = "http://example.com"
-method = "Not a method"
+method = "Get"
 

@@ -12,22 +12,29 @@ pub struct Metadata {
 
 #[derive(Deserialize, Debug)]
 pub enum Method {
-    Get,
-    Post,
-    Patch,
-    Delete,
-    Put,
-    // TODO: add the rest
+    GET,
+    POST,
+    PUT,
+    DELETE,
+    HEAD,
+    OPTIONS,
+    CONNECT,
+    PATCH,
+    TRACE,
 }
 
 impl Method {
     pub fn to_reqwest_method(&self) -> reqwest::Method {
         match &self {
-            Method::Get => reqwest::Method::GET,
-            Method::Post => reqwest::Method::POST,
-            Method::Patch => reqwest::Method::PATCH,
-            Method::Delete => reqwest::Method::DELETE,
-            Method::Put => reqwest::Method::PUT,
+            Method::GET => reqwest::Method::GET,
+            Method::POST => reqwest::Method::POST,
+            Method::PUT => reqwest::Method::PUT,
+            Method::DELETE => reqwest::Method::DELETE,
+            Method::HEAD => reqwest::Method::HEAD,
+            Method::OPTIONS => reqwest::Method::OPTIONS,
+            Method::CONNECT => reqwest::Method::CONNECT,
+            Method::PATCH => reqwest::Method::PATCH,
+            Method::TRACE => reqwest::Method::TRACE,
         }
     }
 }
