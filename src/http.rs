@@ -17,9 +17,10 @@ pub fn send_request(def: &RequestDefinition) -> Result<Response, Error> {
 
 /// Transform a reqwest Response into our own Response
 fn transform_response(res: blocking::Response) -> Result<Response, Error> {
+    let status_code = res.status();
     let body = res.text()?;
 
-    let our_response = Response { body };
+    let our_response = Response { body, status_code };
 
     Ok(our_response)
 }
