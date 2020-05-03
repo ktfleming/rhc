@@ -1,8 +1,9 @@
+use crate::keyvalue::KeyValue;
 use anyhow;
 use attohttpc;
 use serde::Deserialize;
 use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
 use toml;
 
 #[derive(Deserialize, Debug)]
@@ -50,14 +51,8 @@ pub struct Body {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct Header {
-    pub name: String,
-    pub value: String,
-}
-
-#[derive(Deserialize, Debug)]
 pub struct Headers {
-    pub headers: Vec<Header>,
+    pub headers: Vec<KeyValue>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -69,7 +64,7 @@ pub struct RequestDefinition {
 }
 
 impl RequestDefinition {
-    pub fn new(path: &PathBuf) -> anyhow::Result<RequestDefinition> {
+    pub fn new(path: &Path) -> anyhow::Result<RequestDefinition> {
         let contents = fs::read_to_string(path)?;
 
         let request_def = toml::from_str(&contents)?;

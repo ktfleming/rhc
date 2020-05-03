@@ -1,5 +1,7 @@
+use crate::keyvalue::KeyValue;
 use crate::request_definition::RequestDefinition;
 use crate::response::Response;
+use crate::templating::substitute;
 use anyhow;
 use attohttpc::{self, body};
 
@@ -10,14 +12,23 @@ enum OurPreparedRequest {
     EmptyRequest(attohttpc::PreparedRequest<body::Empty>),
 }
 
-fn prepare_request(def: RequestDefinition) -> anyhow::Result<OurPreparedRequest> {
+fn prepare_request(
+    def: RequestDefinition,
+    variables: &Vec<KeyValue>,
+) -> anyhow::Result<OurPreparedRequest> {
+    let final_url = substitute(def.request.url, variables);
+
     let mut request_builder =
-        attohttpc::RequestBuilder::try_new(def.request.method.to_http_method(), def.request.url)?;
+        attohttpc::RequestBuilder::try_new(def.request.method.to_http_method(), final_url)?;
 
     if let Some(headers) = def.headers {
         for header in headers.headers {
-            let name = attohttpc::header::HeaderName::from_bytes(header.name.as_bytes())?;
-            let value = attohttpc::header::HeaderValue::from_str(&header.value)?;
+            let name = substitute(header.name, variables);
+            let name = attohttpc::header::HeaderName::from_bytes(name.as_bytes())?;
+
+            let value = substitute(header.value, variables);
+            let value = attohttpc::header::HeaderValue::from_str(&value)?;
+
             request_builder = request_builder.try_header_append(name, value)?;
         }
     }
@@ -43,7 +54,7 @@ fn test_bad_files() {
             path.to_string_lossy()
         );
 
-        let prepared = prepare_request(def.unwrap());
+        let prepared = prepare_request(def.unwrap(), &vec![]);
         assert!(
             prepared.is_err(),
             "expected file {:?} to error on calling prepare_request, but it was OK",
@@ -52,8 +63,8 @@ fn test_bad_files() {
     }
 }
 
-pub fn send_request(def: RequestDefinition) -> anyhow::Result<Response> {
-    let prepared = prepare_request(def)?;
+pub fn send_request(def: RequestDefinition, variables: &Vec<KeyValue>) -> anyhow::Result<Response> {
+    let prepared = prepare_request(def, variables)?;
 
     let res = match prepared {
         OurPreparedRequest::EmptyRequest(mut req) => req.send(),
