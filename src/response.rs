@@ -1,10 +1,9 @@
-use reqwest;
 use std::fmt;
 
 #[derive(Debug)]
 pub struct Response {
     pub body: String,
-    pub status_code: reqwest::StatusCode,
+    pub status_code: attohttpc::StatusCode,
 }
 
 impl fmt::Display for Response {

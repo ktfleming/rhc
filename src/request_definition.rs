@@ -1,5 +1,5 @@
 use anyhow;
-use reqwest;
+use attohttpc;
 use serde::Deserialize;
 use std::fs;
 use std::path::PathBuf;
@@ -18,23 +18,21 @@ pub enum Method {
     DELETE,
     HEAD,
     OPTIONS,
-    CONNECT,
     PATCH,
     TRACE,
 }
 
 impl Method {
-    pub fn to_reqwest_method(&self) -> reqwest::Method {
+    pub fn to_http_method(&self) -> attohttpc::Method {
         match &self {
-            Method::GET => reqwest::Method::GET,
-            Method::POST => reqwest::Method::POST,
-            Method::PUT => reqwest::Method::PUT,
-            Method::DELETE => reqwest::Method::DELETE,
-            Method::HEAD => reqwest::Method::HEAD,
-            Method::OPTIONS => reqwest::Method::OPTIONS,
-            Method::CONNECT => reqwest::Method::CONNECT,
-            Method::PATCH => reqwest::Method::PATCH,
-            Method::TRACE => reqwest::Method::TRACE,
+            Method::GET => attohttpc::Method::GET,
+            Method::POST => attohttpc::Method::POST,
+            Method::PUT => attohttpc::Method::PUT,
+            Method::DELETE => attohttpc::Method::DELETE,
+            Method::HEAD => attohttpc::Method::HEAD,
+            Method::OPTIONS => attohttpc::Method::OPTIONS,
+            Method::PATCH => attohttpc::Method::PATCH,
+            Method::TRACE => attohttpc::Method::TRACE,
         }
     }
 }

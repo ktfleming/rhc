@@ -1,27 +1,42 @@
 use crate::request_definition::RequestDefinition;
 use crate::response::Response;
 use anyhow;
-use reqwest::blocking;
+use attohttpc::{self, body};
 
-/// Given a RequestDefinition, construct and send a request and
-/// return our Response model
-pub fn send_request(mut def: RequestDefinition) -> anyhow::Result<Response> {
-    let client = blocking::Client::new();
-    let url = reqwest::Url::parse(&def.request.url)?;
-    let mut req = client.request(def.request.method.to_reqwest_method(), url);
-    if let Some(body) = def.body.take() {
-        req = req
-            .body(body.content)
-            .header("Content-Type", body.content_type);
+// Wrapper around attohttpc's PreparedRequest, in order to
+// make the types simpler
+enum OurPreparedRequest {
+    StringRequest(attohttpc::PreparedRequest<body::Text<String>>),
+    EmptyRequest(attohttpc::PreparedRequest<body::Empty>),
+}
+
+fn prepare_request(def: RequestDefinition) -> anyhow::Result<OurPreparedRequest> {
+    let request_builder =
+        attohttpc::RequestBuilder::try_new(def.request.method.to_http_method(), def.request.url)?;
+
+    if let Some(body) = def.body {
+        let prepared = request_builder.text(body.content).try_prepare()?;
+        Ok(OurPreparedRequest::StringRequest(prepared))
+    } else {
+        let prepared = request_builder.try_prepare()?;
+        Ok(OurPreparedRequest::EmptyRequest(prepared))
     }
-    let res = req.send()?;
+}
+
+pub fn send_request(def: RequestDefinition) -> anyhow::Result<Response> {
+    let prepared = prepare_request(def)?;
+
+    let res = match prepared {
+        OurPreparedRequest::EmptyRequest(mut req) => req.send(),
+        OurPreparedRequest::StringRequest(mut req) => req.send(),
+    }?;
+
     let res = transform_response(res)?;
 
     Ok(res)
 }
 
-/// Transform a reqwest Response into our own Response
-fn transform_response(res: blocking::Response) -> anyhow::Result<Response> {
+fn transform_response(res: attohttpc::Response) -> anyhow::Result<Response> {
     let status_code = res.status();
     let body = res.text()?;
 
