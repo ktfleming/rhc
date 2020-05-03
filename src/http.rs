@@ -11,8 +11,16 @@ enum OurPreparedRequest {
 }
 
 fn prepare_request(def: RequestDefinition) -> anyhow::Result<OurPreparedRequest> {
-    let request_builder =
+    let mut request_builder =
         attohttpc::RequestBuilder::try_new(def.request.method.to_http_method(), def.request.url)?;
+
+    if let Some(headers) = def.headers {
+        for header in headers.headers {
+            let name = attohttpc::header::HeaderName::from_bytes(header.name.as_bytes())?;
+            let value = attohttpc::header::HeaderValue::from_str(&header.value)?;
+            request_builder = request_builder.try_header_append(name, value)?;
+        }
+    }
 
     if let Some(body) = def.body {
         let prepared = request_builder.text(body.content).try_prepare()?;
@@ -20,6 +28,27 @@ fn prepare_request(def: RequestDefinition) -> anyhow::Result<OurPreparedRequest>
     } else {
         let prepared = request_builder.try_prepare()?;
         Ok(OurPreparedRequest::EmptyRequest(prepared))
+    }
+}
+
+#[test]
+fn test_bad_files() {
+    for entry in std::fs::read_dir("test_definitions/prepare_bad").unwrap() {
+        let path = entry.unwrap().path();
+
+        let def = RequestDefinition::new(&path);
+        assert!(
+            def.is_ok(),
+            "expected file {:?} to contain a valid RequestDefinition, but it errored",
+            path.to_string_lossy()
+        );
+
+        let prepared = prepare_request(def.unwrap());
+        assert!(
+            prepared.is_err(),
+            "expected file {:?} to error on calling prepare_request, but it was OK",
+            path.to_string_lossy()
+        );
     }
 }
 

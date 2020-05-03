@@ -50,10 +50,22 @@ pub struct Body {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct Header {
+    pub name: String,
+    pub value: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Headers {
+    pub headers: Vec<Header>,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct RequestDefinition {
     metadata: Option<Metadata>,
     pub request: Request,
     pub body: Option<Body>,
+    pub headers: Option<Headers>,
 }
 
 impl RequestDefinition {

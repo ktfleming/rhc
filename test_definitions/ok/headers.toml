@@ -1,0 +1,10 @@
+[request]
+url = "https://httpbin.org/get"
+method = "GET"
+
+[headers]
+headers = [
+  { name = "first", value = "this the first header" },
+  { name = "second", value = "this is another header" }
+]
+
