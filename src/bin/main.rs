@@ -1,10 +1,17 @@
+use anyhow::Context;
 use clap::{App, Arg};
 use rustrest::http;
 use rustrest::request_definition::RequestDefinition;
 use std::path::PathBuf;
-use std::process;
 
 fn main() {
+    if let Err(e) = run() {
+        eprintln!("{:#}", e);
+        std::process::exit(1);
+    }
+}
+
+fn run() -> anyhow::Result<()> {
     let matches = App::new("rustrest")
         .arg(
             Arg::with_name("FILE")
@@ -17,22 +24,13 @@ fn main() {
     let path = matches.value_of("FILE").unwrap();
     let path = PathBuf::from(path);
 
-    let request_definition = RequestDefinition::new(&path);
-
-    match request_definition {
-        Ok(request_definition) => {
-            // TODO: handle this error
-            let res = http::send_request(request_definition).unwrap();
-            println!("{}", res);
-            process::exit(0);
-        }
-        Err(e) => {
-            eprintln!(
-                "Error parsing request definition at {}\n{}",
-                path.to_string_lossy(),
-                e
-            );
-            process::exit(1);
-        }
-    }
+    let request_definition = RequestDefinition::new(&path).with_context(|| {
+        format!(
+            "Failed to parse request definition file at {}",
+            path.to_string_lossy()
+        )
+    })?;
+    let res = http::send_request(request_definition).context("Failed sending request")?;
+    println!("{}", res);
+    Ok(())
 }

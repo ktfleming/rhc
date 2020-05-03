@@ -1,0 +1,3 @@
+[request]
+url = "not a url"
+method = "GET"
