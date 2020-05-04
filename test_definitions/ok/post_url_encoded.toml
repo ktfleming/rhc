@@ -1,0 +1,10 @@
+[request]
+url = "https://httpbin.org/post"
+method = "POST"
+
+[body]
+type = "urlencoded"
+content = [
+  { name = "key1", value = "value1" },
+  { name = "あいうえお", value = "猪" }
+]

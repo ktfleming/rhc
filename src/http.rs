@@ -7,7 +7,9 @@ use attohttpc::{self, body};
 // Wrapper around attohttpc's PreparedRequest, in order to
 // make the types simpler
 enum OurPreparedRequest {
+    // TODO: rename to Bytes
     Json(attohttpc::PreparedRequest<body::Bytes<Vec<u8>>>),
+
     Text(attohttpc::PreparedRequest<body::Text<String>>),
     Empty(attohttpc::PreparedRequest<body::Empty>),
 }
@@ -54,6 +56,16 @@ fn prepare_request(
         Some(Content::Text(text)) => {
             let prepared = request_builder.text(text).try_prepare()?;
             Ok(OurPreparedRequest::Text(prepared))
+        }
+        Some(Content::UrlEncoded(form)) => {
+            // put into a Vec of tuples for serialization with serde_urlencoded
+            let tuples: Vec<(String, String)> = form
+                .into_iter()
+                .map(|keyvalue| (keyvalue.name, keyvalue.value))
+                .collect();
+
+            let prepared = request_builder.form(&tuples)?.try_prepare()?;
+            Ok(OurPreparedRequest::Json(prepared))
         }
     }
 }

@@ -54,6 +54,8 @@ pub enum Content {
 
     #[serde(with = "serde_with::json::nested")]
     Json(serde_json::Value),
+
+    UrlEncoded(Vec<KeyValue>),
 }
 
 #[derive(Deserialize, Debug)]

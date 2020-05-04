@@ -192,6 +192,36 @@ fn test_post_text() -> anyhow::Result<()> {
 }
 
 #[test]
+fn test_post_urlencoded() -> anyhow::Result<()> {
+    let fixture = setup(
+        r#"
+    [request]
+    method = "POST"
+    url = "__base_url__/foo"
+
+    [body]
+    type = "urlencoded"
+    content = [
+      { name = "key1", value = "value1" },
+      { name = "あいうえお", value = "猪" }
+    ]
+    "#,
+        None,
+    )?;
+
+    fixture.server.expect(
+        Expectation::matching(all_of![
+            request::method_path("POST", "/foo"),
+            request::body(url_decoded(contains(("key1", "value1")))),
+            request::body(url_decoded(contains(("あいうえお", "猪"))))
+        ])
+        .respond_with(status_code(200)),
+    );
+
+    run(fixture)
+}
+
+#[test]
 fn test_headers() -> anyhow::Result<()> {
     let fixture = setup(
         r#"
