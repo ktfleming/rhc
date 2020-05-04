@@ -1,5 +1,5 @@
 use crate::keyvalue::KeyValue;
-use crate::request_definition::RequestDefinition;
+use crate::request_definition::{Content, RequestDefinition};
 use crate::response::Response;
 use crate::templating::substitute;
 use anyhow;
@@ -8,7 +8,8 @@ use attohttpc::{self, body};
 // Wrapper around attohttpc's PreparedRequest, in order to
 // make the types simpler
 enum OurPreparedRequest {
-    StringRequest(attohttpc::PreparedRequest<body::Text<String>>),
+    JsonRequest(attohttpc::PreparedRequest<body::Bytes<Vec<u8>>>),
+    TextRequest(attohttpc::PreparedRequest<body::Text<String>>),
     EmptyRequest(attohttpc::PreparedRequest<body::Empty>),
 }
 
@@ -33,12 +34,19 @@ fn prepare_request(
         }
     }
 
-    if let Some(body) = def.body {
-        let prepared = request_builder.text(body.content).try_prepare()?;
-        Ok(OurPreparedRequest::StringRequest(prepared))
-    } else {
-        let prepared = request_builder.try_prepare()?;
-        Ok(OurPreparedRequest::EmptyRequest(prepared))
+    match def.body {
+        None => {
+            let prepared = request_builder.try_prepare()?;
+            Ok(OurPreparedRequest::EmptyRequest(prepared))
+        }
+        Some(Content::Json(json)) => {
+            let prepared = request_builder.json(&json)?.try_prepare()?;
+            Ok(OurPreparedRequest::JsonRequest(prepared))
+        }
+        Some(Content::Text(text)) => {
+            let prepared = request_builder.text(text).try_prepare()?;
+            Ok(OurPreparedRequest::TextRequest(prepared))
+        }
     }
 }
 
@@ -68,7 +76,8 @@ pub fn send_request(def: RequestDefinition, variables: &Vec<KeyValue>) -> anyhow
 
     let res = match prepared {
         OurPreparedRequest::EmptyRequest(mut req) => req.send(),
-        OurPreparedRequest::StringRequest(mut req) => req.send(),
+        OurPreparedRequest::TextRequest(mut req) => req.send(),
+        OurPreparedRequest::JsonRequest(mut req) => req.send(),
     }?;
 
     let res = transform_response(res)?;

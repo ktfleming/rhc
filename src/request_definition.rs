@@ -45,9 +45,13 @@ pub struct Request {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct Body {
-    pub content_type: String,
-    pub content: String,
+#[serde(rename_all = "lowercase")]
+#[serde(tag = "type", content = "content")]
+pub enum Content {
+    Text(String),
+
+    #[serde(with = "serde_with::json::nested")]
+    Json(serde_json::Value),
 }
 
 #[derive(Deserialize, Debug)]
@@ -59,7 +63,7 @@ pub struct Headers {
 pub struct RequestDefinition {
     metadata: Option<Metadata>,
     pub request: Request,
-    pub body: Option<Body>,
+    pub body: Option<Content>,
     pub headers: Option<Headers>,
 }
 
@@ -81,8 +85,9 @@ fn test_ok_files() {
         let result = RequestDefinition::new(&path);
         assert!(
             result.is_ok(),
-            "expected file {:?} to be OK, but it errored",
-            path.to_string_lossy()
+            "expected file {:?} to be OK, but it errored with {:?}",
+            path.to_string_lossy(),
+            result
         );
     }
 }
@@ -95,8 +100,9 @@ fn test_bad_files() {
         let result = RequestDefinition::new(&path);
         assert!(
             result.is_err(),
-            "expected file {:?} to error, but it was OK",
-            path.to_string_lossy()
+            "expected file {:?} to error, but it was OK. Got result {:?}",
+            path.to_string_lossy(),
+            result
         );
     }
 }

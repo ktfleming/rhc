@@ -1,0 +1,7 @@
+[request]
+method = "POST"
+url = "http://example.com"
+
+[body]
+type = "text"
+content = "a string"

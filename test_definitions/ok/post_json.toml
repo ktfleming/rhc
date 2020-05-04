@@ -6,7 +6,7 @@ url = "https://httpbin.org/post"
 method = "POST"
 
 [body]
-content_type = "application/json"
+type = "json"
 content = '''
 {
   "some_key": "some value",
