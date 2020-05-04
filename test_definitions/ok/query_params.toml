@@ -1,0 +1,8 @@
+[request]
+url = "https://httpbin.org/get"
+method = "GET"
+
+[query]
+params = [
+  { name = "id", value = "12345" }
+]

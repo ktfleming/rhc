@@ -76,6 +76,35 @@ fn test_basic_get() -> anyhow::Result<()> {
 }
 
 #[test]
+fn test_query_params() -> anyhow::Result<()> {
+    let fixture = setup(
+        r#"
+    [request]
+    method = "GET"
+    url = "__base_url__/foo"
+
+    [query]
+    params = [
+      { name = "first", value = "value1" },
+      { name = "あああ", value = "猫" }
+    ]
+    "#,
+        None,
+    )?;
+
+    fixture.server.expect(
+        Expectation::matching(all_of![
+            request::method_path("GET", "/foo"),
+            request::query(url_decoded(contains(("first", "value1")))),
+            request::query(url_decoded(contains(("あああ", "猫")))),
+        ])
+        .respond_with(status_code(200)),
+    );
+
+    run(fixture)
+}
+
+#[test]
 fn test_basic_post() -> anyhow::Result<()> {
     let fixture = setup(
         r#"

@@ -34,6 +34,15 @@ fn prepare_request(
         }
     }
 
+    if let Some(query) = def.query {
+        for param in query.params {
+            let name = substitute(param.name, variables);
+            let value = substitute(param.value, variables);
+
+            request_builder = request_builder.param(name, value);
+        }
+    }
+
     match def.body {
         None => {
             let prepared = request_builder.try_prepare()?;

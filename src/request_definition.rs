@@ -45,6 +45,11 @@ pub struct Request {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct Query {
+    pub params: Vec<KeyValue>,
+}
+
+#[derive(Deserialize, Debug)]
 #[serde(rename_all = "lowercase")]
 #[serde(tag = "type", content = "content")]
 pub enum Content {
@@ -63,6 +68,7 @@ pub struct Headers {
 pub struct RequestDefinition {
     metadata: Option<Metadata>,
     pub request: Request,
+    pub query: Option<Query>,
     pub body: Option<Content>,
     pub headers: Option<Headers>,
 }
