@@ -1,8 +1,6 @@
 use crate::keyvalue::KeyValue;
-use anyhow;
 use serde::Deserialize;
 use std::path::Path;
-use toml;
 
 #[derive(Deserialize, Debug)]
 pub struct Environment {

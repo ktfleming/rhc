@@ -2,7 +2,7 @@ use crate::keyvalue::KeyValue;
 
 // Naive substitution, just replace each variable one-by-one.
 // Could optimize at some point, but possibly not worth it.
-pub fn substitute(mut output: String, variables: &Vec<KeyValue>) -> String {
+pub fn substitute(mut output: String, variables: &[KeyValue]) -> String {
     for var in variables {
         let target = format!("{{{}}}", var.name);
         output = output.replace(&target, &var.value);

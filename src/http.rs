@@ -2,20 +2,19 @@ use crate::keyvalue::KeyValue;
 use crate::request_definition::{Content, RequestDefinition};
 use crate::response::Response;
 use crate::templating::substitute;
-use anyhow;
 use attohttpc::{self, body};
 
 // Wrapper around attohttpc's PreparedRequest, in order to
 // make the types simpler
 enum OurPreparedRequest {
-    JsonRequest(attohttpc::PreparedRequest<body::Bytes<Vec<u8>>>),
-    TextRequest(attohttpc::PreparedRequest<body::Text<String>>),
-    EmptyRequest(attohttpc::PreparedRequest<body::Empty>),
+    Json(attohttpc::PreparedRequest<body::Bytes<Vec<u8>>>),
+    Text(attohttpc::PreparedRequest<body::Text<String>>),
+    Empty(attohttpc::PreparedRequest<body::Empty>),
 }
 
 fn prepare_request(
     def: RequestDefinition,
-    variables: &Vec<KeyValue>,
+    variables: &[KeyValue],
 ) -> anyhow::Result<OurPreparedRequest> {
     let final_url = substitute(def.request.url, variables);
 
@@ -46,15 +45,15 @@ fn prepare_request(
     match def.body {
         None => {
             let prepared = request_builder.try_prepare()?;
-            Ok(OurPreparedRequest::EmptyRequest(prepared))
+            Ok(OurPreparedRequest::Empty(prepared))
         }
         Some(Content::Json(json)) => {
             let prepared = request_builder.json(&json)?.try_prepare()?;
-            Ok(OurPreparedRequest::JsonRequest(prepared))
+            Ok(OurPreparedRequest::Json(prepared))
         }
         Some(Content::Text(text)) => {
             let prepared = request_builder.text(text).try_prepare()?;
-            Ok(OurPreparedRequest::TextRequest(prepared))
+            Ok(OurPreparedRequest::Text(prepared))
         }
     }
 }
@@ -80,13 +79,13 @@ fn test_bad_files() {
     }
 }
 
-pub fn send_request(def: RequestDefinition, variables: &Vec<KeyValue>) -> anyhow::Result<Response> {
+pub fn send_request(def: RequestDefinition, variables: &[KeyValue]) -> anyhow::Result<Response> {
     let prepared = prepare_request(def, variables)?;
 
     let res = match prepared {
-        OurPreparedRequest::EmptyRequest(mut req) => req.send(),
-        OurPreparedRequest::TextRequest(mut req) => req.send(),
-        OurPreparedRequest::JsonRequest(mut req) => req.send(),
+        OurPreparedRequest::Empty(mut req) => req.send(),
+        OurPreparedRequest::Text(mut req) => req.send(),
+        OurPreparedRequest::Json(mut req) => req.send(),
     }?;
 
     let res = transform_response(res)?;

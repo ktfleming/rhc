@@ -1,10 +1,7 @@
 use crate::keyvalue::KeyValue;
-use anyhow;
-use attohttpc;
 use serde::Deserialize;
 use std::fs;
 use std::path::Path;
-use toml;
 
 #[derive(Deserialize, Debug)]
 pub struct Metadata {
