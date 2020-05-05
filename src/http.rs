@@ -7,9 +7,7 @@ use attohttpc::{self, body};
 // Wrapper around attohttpc's PreparedRequest, in order to
 // make the types simpler
 enum OurPreparedRequest {
-    // TODO: rename to Bytes
-    Json(attohttpc::PreparedRequest<body::Bytes<Vec<u8>>>),
-
+    Bytes(attohttpc::PreparedRequest<body::Bytes<Vec<u8>>>),
     Text(attohttpc::PreparedRequest<body::Text<String>>),
     Empty(attohttpc::PreparedRequest<body::Empty>),
 }
@@ -51,7 +49,7 @@ fn prepare_request(
         }
         Some(Content::Json(json)) => {
             let prepared = request_builder.json(&json)?.try_prepare()?;
-            Ok(OurPreparedRequest::Json(prepared))
+            Ok(OurPreparedRequest::Bytes(prepared))
         }
         Some(Content::Text(text)) => {
             let prepared = request_builder.text(text).try_prepare()?;
@@ -65,7 +63,7 @@ fn prepare_request(
                 .collect();
 
             let prepared = request_builder.form(&tuples)?.try_prepare()?;
-            Ok(OurPreparedRequest::Json(prepared))
+            Ok(OurPreparedRequest::Bytes(prepared))
         }
     }
 }
@@ -97,7 +95,7 @@ pub fn send_request(def: RequestDefinition, variables: &[KeyValue]) -> anyhow::R
     let res = match prepared {
         OurPreparedRequest::Empty(mut req) => req.send(),
         OurPreparedRequest::Text(mut req) => req.send(),
-        OurPreparedRequest::Json(mut req) => req.send(),
+        OurPreparedRequest::Bytes(mut req) => req.send(),
     }?;
 
     let res = transform_response(res)?;
