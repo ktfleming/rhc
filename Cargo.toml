@@ -8,10 +8,16 @@ edition = "2018"
 anyhow = "1.0.28"
 attohttpc = { version = "0.13.0", features = ["json", "form"] }
 clap = "2.33.0"
+fuzzy-matcher = "0.3.4"
+pad = "0.1.6"
 serde = { version = "1.0.106", features = ["derive"] }
 serde_json = "1.0.52"
 serde_with = { version = "1.4.0", features = ["json"] }
+termion = "1.5.5"
 toml = "0.5.6"
+tui = "0.9.1"
+unicode-width = "0.1.7"
+walkdir = "2.3.1"
 
 [dev-dependencies]
 assert_cmd = "1.0.1"

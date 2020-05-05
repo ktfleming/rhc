@@ -2,7 +2,7 @@ use crate::keyvalue::KeyValue;
 use crate::request_definition::{Content, RequestDefinition};
 use crate::response::Response;
 use crate::templating::substitute;
-use attohttpc::{self, body};
+use attohttpc::body;
 
 // Wrapper around attohttpc's PreparedRequest, in order to
 // make the types simpler

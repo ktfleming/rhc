@@ -5,7 +5,7 @@ use std::path::Path;
 
 #[derive(Deserialize, Debug)]
 pub struct Metadata {
-    name: String,
+    pub name: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -65,7 +65,7 @@ pub struct Headers {
 
 #[derive(Deserialize, Debug)]
 pub struct RequestDefinition {
-    metadata: Option<Metadata>,
+    pub metadata: Option<Metadata>,
     pub request: Request,
     pub query: Option<Query>,
     pub body: Option<Content>,

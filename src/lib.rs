@@ -1,5 +1,8 @@
+pub mod choice;
 pub mod environment;
+pub mod files;
 pub mod http;
+pub mod interactive;
 pub mod keyvalue;
 pub mod request_definition;
 pub mod response;

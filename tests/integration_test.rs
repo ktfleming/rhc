@@ -48,6 +48,8 @@ fn run(fixture: TestFixture) -> anyhow::Result<()> {
         cmd.arg("--environment");
         cmd.arg(env_file.path());
     }
+
+    cmd.arg("--file");
     cmd.arg(fixture.def_file.path());
     let assert = cmd.assert();
     // let output = assert.get_output();

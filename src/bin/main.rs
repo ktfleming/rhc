@@ -1,7 +1,9 @@
 use anyhow::Context;
 use clap::{App, Arg};
 use rustrest::environment::Environment;
+use rustrest::files::load_file;
 use rustrest::http;
+use rustrest::interactive;
 use rustrest::request_definition::RequestDefinition;
 use std::path::Path;
 
@@ -15,10 +17,11 @@ fn main() {
 fn run() -> anyhow::Result<()> {
     let matches = App::new("rustrest")
         .arg(
-            Arg::with_name("FILE")
+            Arg::with_name("file")
+                .short("f")
+                .long("file")
                 .help("The request definition file to use")
-                .required(true)
-                .index(1),
+                .takes_value(true),
         )
         .arg(
             Arg::with_name("environment")
@@ -29,39 +32,34 @@ fn run() -> anyhow::Result<()> {
         )
         .get_matches();
 
-    let def_path = matches.value_of("FILE").unwrap();
-    let def_path = Path::new(def_path);
-
-    let request_definition = RequestDefinition::new(def_path).with_context(|| {
-        format!(
-            "Failed to parse request definition file at {}",
-            def_path.to_string_lossy()
+    let request_definition = matches.value_of("file").map(|path| {
+        load_file(
+            Path::new(path),
+            RequestDefinition::new,
+            "request definition",
         )
-    })?;
+        .unwrap()
+    });
 
-    let env: anyhow::Result<Option<Environment>> =
-        matches
-            .value_of("environment")
-            .map_or(Ok(None), |env_path| {
-                let env_path = Path::new(env_path);
+    let env = matches
+        .value_of("environment")
+        .map(|path| load_file(Path::new(path), Environment::new, "environment").unwrap());
 
-                Environment::new(env_path)
-                    .with_context(|| {
-                        format!(
-                            "Failed to parse environment file at {}",
-                            env_path.to_string_lossy()
-                        )
-                    })
-                    .map(Some)
-            });
-
-    let env = env?;
-
-    let res = http::send_request(
-        request_definition,
-        env.as_ref().map(|e| &e.variables).unwrap_or(&vec![]),
-    )
-    .context("Failed sending request")?;
-    println!("{}", res);
-    Ok(())
+    // If a request definition file was provided, just send that one request.
+    // Otherwise, enter interactive mode.
+    match request_definition {
+        Some(request_definition) => {
+            let res = http::send_request(
+                request_definition,
+                env.as_ref().map(|e| &e.variables).unwrap_or(&vec![]),
+            )
+            .context("Failed sending request")?;
+            println!("{}", res);
+            Ok(())
+        }
+        None => {
+            interactive::interactive_mode()?;
+            Ok(())
+        }
+    }
 }
