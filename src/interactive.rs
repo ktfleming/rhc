@@ -2,11 +2,10 @@ use crate::choice::Choice;
 use crate::files;
 use crate::request_definition::RequestDefinition;
 use anyhow::Context;
-use fuzzy_matcher::skim::SkimMatcherV2;
-use fuzzy_matcher::FuzzyMatcher;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
+use sublime_fuzzy::best_match;
 use termion::cursor::Goto;
 use termion::event::Key;
 use termion::input::TermRead;
@@ -82,9 +81,6 @@ pub fn interactive_mode() -> anyhow::Result<()> {
     // path and update the Choice's request_definition field via the write mode of the RwLock.
     let all_choices = Arc::new(RwLock::new(files::list_all_choices()));
 
-    // Using the fuzzy matcher from the `skim` app/crate
-    let matcher = SkimMatcherV2::default();
-
     let mut app_state = InteractiveState::new();
 
     let num_choices = all_choices.read().unwrap().len();
@@ -126,25 +122,28 @@ pub fn interactive_mode() -> anyhow::Result<()> {
         let inner_guard = inner_guard.read().unwrap();
 
         // Use fuzzy matching on the Choices' path, and name if present
-        let mut matching_choices: Vec<(i64, &Choice)> = inner_guard
-            .iter()
-            .filter_map(|choice| {
-                let target = format!(
-                    "{}{}",
-                    &choice.path.to_string_lossy(),
-                    &choice.get_url_or_blank()
-                );
-                let score = matcher.fuzzy_match(&target, &app_state.query);
-                score.map(|score| (score, choice))
-            })
-            .collect();
+        let filtered_choices: Vec<&Choice> = if app_state.query.is_empty() {
+            inner_guard.iter().collect()
+        } else {
+            let mut matching_choices: Vec<(isize, &Choice)> = inner_guard
+                .iter()
+                .filter_map(|choice| {
+                    let target = format!(
+                        "{}{}",
+                        &choice.path.to_string_lossy(),
+                        &choice.get_url_or_blank()
+                    );
+                    best_match(&app_state.query, &target).map(|result| (result.score(), choice))
+                })
+                .collect();
 
-        // We want to sort descending so the Choice with the highest score is as position 0
-        matching_choices.sort_unstable_by(|(score1, _), (score2, _)| score2.cmp(score1));
-        let final_matching_choices: Vec<&Choice> =
-            matching_choices.iter().map(|(_, choice)| *choice).collect();
+            // We want to sort descending so the Choice with the highest score is as position 0
+            matching_choices.sort_unstable_by(|(score1, _), (score2, _)| score2.cmp(score1));
 
-        if final_matching_choices.is_empty() {
+            matching_choices.iter().map(|(_, choice)| *choice).collect()
+        };
+
+        if filtered_choices.is_empty() {
             // Nothing to select
             app_state.list_state.select(None);
         } else if app_state.list_state.selected().is_none() {
@@ -155,10 +154,10 @@ pub fn interactive_mode() -> anyhow::Result<()> {
             // Since the filtered list could have changed, prevent the selection from going past
             // the end of the list, which could happen if the user navigates up the list and then
             // changes the search query.
-            if selected >= final_matching_choices.len() {
+            if selected >= filtered_choices.len() {
                 app_state
                     .list_state
-                    .select(Some(final_matching_choices.len() - 1));
+                    .select(Some(filtered_choices.len() - 1));
             }
         }
 
@@ -166,8 +165,8 @@ pub fn interactive_mode() -> anyhow::Result<()> {
             let width = f.size().width;
             let height = f.size().height;
 
-            let num_items = final_matching_choices.len() as u16;
-            let items = final_matching_choices
+            let num_items = filtered_choices.len() as u16;
+            let items = filtered_choices
                 .iter()
                 // Have to make room for the highlight symbol, and a 1-column margin on the right
                 .map(|choice| choice.to_text_widget(width as usize - highlight_symbol.len() - 1));
@@ -210,7 +209,7 @@ pub fn interactive_mode() -> anyhow::Result<()> {
                 Key::Ctrl('k') | Key::Up => {
                     // Navigate up (increase selection index)
                     if let Some(selected) = app_state.list_state.selected() {
-                        if selected < final_matching_choices.len() - 1 {
+                        if selected < filtered_choices.len() - 1 {
                             app_state.list_state.select(Some(selected + 1));
                         }
                     }
@@ -226,7 +225,7 @@ pub fn interactive_mode() -> anyhow::Result<()> {
                 Key::Char('\n') => {
                     // Only prime and break from the loop if something is actually selected
                     if let Some(i) = app_state.list_state.selected() {
-                        app_state.primed = final_matching_choices.get(i).map(|c| c.path.clone());
+                        app_state.primed = filtered_choices.get(i).map(|c| c.path.clone());
                         break;
                     }
                 }
