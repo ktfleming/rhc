@@ -1,14 +1,21 @@
 use crate::keyvalue::KeyValue;
+use std::borrow::Cow;
 
 // Naive substitution, just replace each variable one-by-one.
 // Could optimize at some point, but possibly not worth it.
-pub fn substitute(mut output: String, variables: &[KeyValue]) -> String {
+pub fn substitute<'a>(base: &'a str, variables: &'a [KeyValue]) -> Cow<'a, str> {
+    let mut output: String = base.to_owned();
     for var in variables {
         let target = format!("{{{}}}", var.name);
         output = output.replace(&target, &var.value);
     }
 
-    output
+    // TODO: is this Cow stuff all correct?
+    if output == base {
+        Cow::Borrowed(base)
+    } else {
+        Cow::Owned(output)
+    }
 }
 
 #[test]
@@ -30,7 +37,7 @@ fn test_substitute() {
     let base = "a {var2} b {var1} c {var3} d {var2}";
 
     assert_eq!(
-        substitute(base.to_string(), &vars),
+        substitute(base, &vars),
         "a value2 b value1 c {var3} d value2"
     )
 }

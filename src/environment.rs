@@ -4,6 +4,7 @@ use std::path::Path;
 
 #[derive(Deserialize, Debug)]
 pub struct Environment {
+    pub name: String,
     pub variables: Vec<KeyValue>,
 }
 

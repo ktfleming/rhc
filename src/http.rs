@@ -16,17 +16,17 @@ fn prepare_request(
     def: RequestDefinition,
     variables: &[KeyValue],
 ) -> anyhow::Result<OurPreparedRequest> {
-    let final_url = substitute(def.request.url, variables);
+    let final_url = substitute(&def.request.url, variables);
 
     let mut request_builder =
         attohttpc::RequestBuilder::try_new(def.request.method.to_http_method(), final_url)?;
 
     if let Some(headers) = def.headers {
         for header in headers.headers {
-            let name = substitute(header.name, variables);
+            let name = substitute(&header.name, variables);
             let name = attohttpc::header::HeaderName::from_bytes(name.as_bytes())?;
 
-            let value = substitute(header.value, variables);
+            let value = substitute(&header.value, variables);
             let value = attohttpc::header::HeaderValue::from_str(&value)?;
 
             request_builder = request_builder.try_header_append(name, value)?;
@@ -35,8 +35,8 @@ fn prepare_request(
 
     if let Some(query) = def.query {
         for param in query.params {
-            let name = substitute(param.name, variables);
-            let value = substitute(param.value, variables);
+            let name = substitute(&param.name, variables);
+            let value = substitute(&param.value, variables);
 
             request_builder = request_builder.param(name, value);
         }

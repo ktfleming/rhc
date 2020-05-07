@@ -1,4 +1,5 @@
 pub mod choice;
+pub mod config;
 pub mod environment;
 pub mod files;
 pub mod http;

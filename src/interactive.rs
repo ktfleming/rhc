@@ -1,4 +1,6 @@
 use crate::choice::Choice;
+use crate::config::Config;
+use crate::environment::Environment;
 use crate::files;
 use crate::request_definition::RequestDefinition;
 use anyhow::Context;
@@ -27,6 +29,8 @@ struct InteractiveState {
     // When exiting the UI loop, if this is Some, that Choice
     // will have its request sent.
     primed: Option<PathBuf>,
+
+    active_env_index: Option<usize>,
 }
 
 impl InteractiveState {
@@ -35,6 +39,7 @@ impl InteractiveState {
             query: String::new(),
             list_state: ListState::default(),
             primed: None,
+            active_env_index: None,
         }
     }
 
@@ -67,7 +72,7 @@ impl InteractiveState {
     }
 }
 
-pub fn interactive_mode() -> anyhow::Result<()> {
+pub fn interactive_mode(config: &Config, env_arg: Option<&str>) -> anyhow::Result<()> {
     let stdout = io::stdout().into_raw_mode()?;
     let stdout = AlternateScreen::from(stdout);
     let backend = TermionBackend::new(stdout);
@@ -79,7 +84,7 @@ pub fn interactive_mode() -> anyhow::Result<()> {
     // RequestDefinition is not present.  The main UI loop accesses it through the read mode of the
     // RwLock and only uses it to display the List widget. Another thread is spawned to parse each
     // path and update the Choice's request_definition field via the write mode of the RwLock.
-    let all_choices = Arc::new(RwLock::new(files::list_all_choices()));
+    let all_choices = Arc::new(RwLock::new(files::list_all_choices(config)));
 
     let mut app_state = InteractiveState::new();
 
@@ -113,6 +118,21 @@ pub fn interactive_mode() -> anyhow::Result<()> {
         .bg(Color::LightGreen)
         .modifier(Modifier::BOLD);
 
+    // Load all the environments available
+    let environments: Vec<(Environment, String)> = files::list_all_environments(&config);
+
+    // If the user started with the --environment flag, find the matching environment, if there is
+    // one, and set that as the selected environment.
+    if let Some(env_arg) = env_arg {
+        for (i, (_, path)) in environments.iter().enumerate() {
+            if path == env_arg {
+                app_state.active_env_index = Some(i);
+            }
+        }
+    }
+
+    let environments: Vec<Environment> = environments.into_iter().map(|(env, _)| env).collect();
+
     loop {
         // Needed to prevent cursor flicker when navigating the list
         io::stdout().flush().ok();
@@ -120,6 +140,16 @@ pub fn interactive_mode() -> anyhow::Result<()> {
         // Inside this loop we only need read access to the Vec<Choice>
         let inner_guard = Arc::clone(&all_choices);
         let inner_guard = inner_guard.read().unwrap();
+
+        // Look up the active environment to use it in the prompt
+        let active_env = app_state
+            .active_env_index
+            .map(|i| environments.get(i).unwrap());
+        let active_vars = active_env.map(|e| &e.variables);
+        let prompt = match active_env {
+            Some(env) => format!("{} > ", env.name),
+            None => "> ".to_string(),
+        };
 
         // Use fuzzy matching on the Choices' path, and name if present
         let filtered_choices: Vec<&Choice> = if app_state.query.is_empty() {
@@ -131,7 +161,7 @@ pub fn interactive_mode() -> anyhow::Result<()> {
                     let target = format!(
                         "{}{}",
                         &choice.path.to_string_lossy(),
-                        &choice.get_url_or_blank()
+                        choice.get_url_or_blank(active_vars)
                     );
                     best_match(&app_state.query, &target).map(|result| (result.score(), choice))
                 })
@@ -169,7 +199,9 @@ pub fn interactive_mode() -> anyhow::Result<()> {
             let items = filtered_choices
                 .iter()
                 // Have to make room for the highlight symbol, and a 1-column margin on the right
-                .map(|choice| choice.to_text_widget(width as usize - highlight_symbol.len() - 1));
+                .map(|choice| {
+                    choice.to_text_widget(width as usize - highlight_symbol.len() - 1, active_vars)
+                });
             let list = List::new(items)
                 .style(style)
                 .start_corner(tui::layout::Corner::BottomLeft)
@@ -184,7 +216,7 @@ pub fn interactive_mode() -> anyhow::Result<()> {
             // The bottom row is used for the query input
             let query_rect =
                 tui::layout::Rect::new(0, f.size().height - 1, f.size().width as u16, 1);
-            let text = [Text::raw(&app_state.query)];
+            let text = [Text::raw(format!("{}{}", prompt, &app_state.query))];
             let input = Paragraph::new(text.iter());
 
             f.render_widget(input, query_rect);
@@ -196,7 +228,10 @@ pub fn interactive_mode() -> anyhow::Result<()> {
         write!(
             terminal.backend_mut(),
             "{}",
-            Goto(app_state.query.width() as u16 + 1, height)
+            Goto(
+                prompt.width() as u16 + app_state.query.width() as u16 + 1,
+                height
+            )
         )?;
 
         let input = stdin.next();
@@ -229,8 +264,42 @@ pub fn interactive_mode() -> anyhow::Result<()> {
                         break;
                     }
                 }
-                Key::Char(c) => app_state.append_to_query(c),
                 Key::Backspace => app_state.backspace(),
+                Key::Char('\t') => {
+                    // Select next environment
+                    match app_state.active_env_index {
+                        None => {
+                            if !environments.is_empty() {
+                                app_state.active_env_index = Some(0);
+                            }
+                        }
+                        Some(i) => {
+                            if i < environments.len() - 1 {
+                                app_state.active_env_index = Some(i + 1);
+                            } else {
+                                app_state.active_env_index = None;
+                            }
+                        }
+                    }
+                }
+                Key::BackTab => {
+                    // Select previous environment
+                    match app_state.active_env_index {
+                        None => {
+                            if !environments.is_empty() {
+                                app_state.active_env_index = Some(environments.len() - 1);
+                            }
+                        }
+                        Some(i) => {
+                            if i > 0 {
+                                app_state.active_env_index = Some(i - 1);
+                            } else {
+                                app_state.active_env_index = None;
+                            }
+                        }
+                    }
+                }
+                Key::Char(c) => app_state.append_to_query(c),
                 _ => {}
             }
         }
@@ -244,7 +313,12 @@ pub fn interactive_mode() -> anyhow::Result<()> {
 
     if let Some(path) = app_state.primed {
         let def = files::load_file(&path, RequestDefinition::new, "request definition")?;
-        let res = crate::http::send_request(def, &[]).context("Failed sending request")?;
+        let blank = vec![];
+        let vars = app_state
+            .active_env_index
+            .map(|i| &environments.get(i).unwrap().variables)
+            .unwrap_or(&blank);
+        let res = crate::http::send_request(def, vars).context("Failed sending request")?;
         println!("{}", res);
     }
     Ok(())

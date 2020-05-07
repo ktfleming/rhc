@@ -267,6 +267,7 @@ fn test_templating() -> anyhow::Result<()> {
     "#,
         Some(
             r#"
+        name = "test_env"
         variables = [
           { name = "var1", value = "bar" },
           { name = "header_1", value = "translated" },
