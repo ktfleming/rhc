@@ -5,8 +5,8 @@ use anyhow::Context;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
-/// Try to load the appropriate struct from the provided file path,
-/// if present, and fail with a helpful error message if necessary.
+/// Try to load the appropriate struct from the provided file path, if present, and fail with a
+/// helpful error message if necessary.
 pub fn load_file<T, F>(path: &Path, loader: F, file_desc: &str) -> anyhow::Result<T>
 where
     F: Fn(&Path) -> anyhow::Result<T>,
@@ -31,9 +31,8 @@ fn get_all_toml_files(dir: &str) -> Vec<PathBuf> {
         .collect()
 }
 
-/// Try to load all request definitions from TOML files under the
-/// base definitions directory. If any can't be parsed, return an
-/// error to display to the user; this way any malformed TOML files
+/// Try to load all request definitions from TOML files under the base definitions directory. If
+/// any can't be parsed, return an error to display to the user; this way any malformed TOML files
 /// won't cause the whole program to be unusable.
 pub fn list_all_choices(config: &Config) -> Vec<Choice> {
     let mut choices: Vec<Choice> = get_all_toml_files(&config.request_definition_directory)

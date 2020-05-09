@@ -3,7 +3,6 @@ use crate::config::Config;
 use crate::environment::Environment;
 use crate::files;
 use crate::request_definition::RequestDefinition;
-use anyhow::Context;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
@@ -72,7 +71,10 @@ impl InteractiveState {
     }
 }
 
-pub fn interactive_mode(config: &Config, env_arg: Option<&str>) -> anyhow::Result<()> {
+pub fn interactive_mode(
+    config: &Config,
+    env_arg: Option<&str>,
+) -> anyhow::Result<Option<(RequestDefinition, Option<Environment>)>> {
     let stdout = io::stdout().into_raw_mode()?;
     let stdout = AlternateScreen::from(stdout);
     let backend = TermionBackend::new(stdout);
@@ -131,7 +133,7 @@ pub fn interactive_mode(config: &Config, env_arg: Option<&str>) -> anyhow::Resul
         }
     }
 
-    let environments: Vec<Environment> = environments.into_iter().map(|(env, _)| env).collect();
+    let mut environments: Vec<Environment> = environments.into_iter().map(|(env, _)| env).collect();
 
     loop {
         // Needed to prevent cursor flicker when navigating the list
@@ -311,17 +313,18 @@ pub fn interactive_mode(config: &Config, env_arg: Option<&str>) -> anyhow::Resul
     // Flush stdout so the list screen is cleared immediately
     io::stdout().flush().ok();
 
-    if let Some(path) = app_state.primed {
-        let def = files::load_file(&path, RequestDefinition::new, "request definition")?;
-        let blank = vec![];
-        let vars = app_state
-            .active_env_index
-            .map(|i| &environments.get(i).unwrap().variables)
-            .unwrap_or(&blank);
-        let res = crate::http::send_request(def, vars).context("Failed sending request")?;
-        println!("{}", res);
-    }
-    Ok(())
+    let result = match app_state.primed {
+        None => None,
+        Some(path) => {
+            let def: RequestDefinition =
+                files::load_file(&path, RequestDefinition::new, "request definition")?;
+            let env: Option<Environment> =
+                app_state.active_env_index.map(|i| environments.remove(i));
+            Some((def, env))
+        }
+    };
+
+    Ok(result)
 }
 
 #[test]
