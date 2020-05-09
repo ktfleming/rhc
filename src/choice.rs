@@ -49,7 +49,7 @@ impl Choice {
             Some(Ok(request_definition)) => {
                 let initial_url = &request_definition.request.url;
                 variables
-                    .map(|vars| substitute(initial_url, vars))
+                    .map(|vars| substitute(initial_url, vars).0)
                     .unwrap_or(Cow::Borrowed(initial_url))
             }
             _ => "".into(),

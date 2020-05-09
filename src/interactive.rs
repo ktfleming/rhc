@@ -2,21 +2,49 @@ use crate::choice::Choice;
 use crate::config::Config;
 use crate::environment::Environment;
 use crate::files;
+use crate::keyvalue::KeyValue;
 use crate::request_definition::RequestDefinition;
+use scopeguard;
+use std::fs::OpenOptions;
 use std::io::{self, Write};
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use sublime_fuzzy::best_match;
-use termion::cursor::Goto;
+use termion::cursor::{Goto, Hide, Show};
 use termion::event::Key;
-use termion::input::TermRead;
-use termion::raw::IntoRawMode;
-use termion::screen::AlternateScreen;
-use tui::backend::TermionBackend;
+use termion::input::Keys;
 use tui::style::{Color, Modifier, Style};
 use tui::widgets::{List, ListState, Paragraph, Text};
 use tui::Terminal;
 use unicode_width::UnicodeWidthStr;
+
+/// Like readline Ctrl-W
+pub fn cut_to_current_word_start(s: &mut String) {
+    let mut cut_a_letter = false;
+    while !s.is_empty() {
+        let popped = s.pop();
+        if let Some(' ') = popped {
+            if cut_a_letter {
+                s.push(' ');
+                break;
+            }
+        } else {
+            cut_a_letter = true;
+        }
+    }
+}
+
+fn get_list_styles() -> (Style, Style) {
+    let default_style = Style::default().fg(Color::Black).bg(Color::White);
+
+    let highlight_style = default_style
+        .fg(Color::Black)
+        .bg(Color::LightGreen)
+        .modifier(Modifier::BOLD);
+
+    (default_style, highlight_style)
+}
 
 struct InteractiveState {
     /// What the user has entered into the input buffer
@@ -41,46 +69,14 @@ impl InteractiveState {
             active_env_index: None,
         }
     }
-
-    pub fn append_to_query(&mut self, to_append: char) {
-        self.query.push(to_append);
-    }
-
-    pub fn backspace(&mut self) {
-        self.query.pop();
-    }
-
-    /// Like readline Ctrl-W
-    pub fn cut_to_current_word_start(&mut self) {
-        let mut cut_a_letter = false;
-        while !self.query.is_empty() {
-            let popped = self.query.pop();
-            if let Some(' ') = popped {
-                if cut_a_letter {
-                    self.query.push(' ');
-                    break;
-                }
-            } else {
-                cut_a_letter = true;
-            }
-        }
-    }
-
-    pub fn clear_query(&mut self) {
-        self.query.clear();
-    }
 }
 
-pub fn interactive_mode(
+pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Write>(
     config: &Config,
     env_arg: Option<&str>,
+    stdin: &mut Keys<R>,
+    terminal: &mut Terminal<B>,
 ) -> anyhow::Result<Option<(RequestDefinition, Option<Environment>)>> {
-    let stdout = io::stdout().into_raw_mode()?;
-    let stdout = AlternateScreen::from(stdout);
-    let backend = TermionBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-    let mut stdin = termion::async_stdin().keys();
-
     // This Vec<Choice> serves as the source-of-truth that will be filtered on and eventually
     // selected from. Initially only Paths are populated in the Choice structs, and the associated
     // RequestDefinition is not present.  The main UI loop accesses it through the read mode of the
@@ -113,12 +109,7 @@ pub fn interactive_mode(
         }
     });
 
-    // Default styling for the list
-    let style = Style::default().fg(Color::Black).bg(Color::White);
-    let highlight_style = style
-        .fg(Color::Black)
-        .bg(Color::LightGreen)
-        .modifier(Modifier::BOLD);
+    let (default_style, highlight_style) = get_list_styles();
 
     // Load all the environments available
     let environments: Vec<(Environment, String)> = files::list_all_environments(&config);
@@ -205,7 +196,7 @@ pub fn interactive_mode(
                     choice.to_text_widget(width as usize - highlight_symbol.len() - 1, active_vars)
                 });
             let list = List::new(items)
-                .style(style)
+                .style(default_style)
                 .start_corner(tui::layout::Corner::BottomLeft)
                 .highlight_style(highlight_style)
                 .highlight_symbol(highlight_symbol);
@@ -216,8 +207,7 @@ pub fn interactive_mode(
             f.render_stateful_widget(list, list_rect, &mut app_state.list_state);
 
             // The bottom row is used for the query input
-            let query_rect =
-                tui::layout::Rect::new(0, f.size().height - 1, f.size().width as u16, 1);
+            let query_rect = tui::layout::Rect::new(0, height - 1, width, 1);
             let text = [Text::raw(format!("{}{}", prompt, &app_state.query))];
             let input = Paragraph::new(text.iter());
 
@@ -241,8 +231,10 @@ pub fn interactive_mode(
         if let Some(Ok(key)) = input {
             match key {
                 Key::Ctrl('c') => break,
-                Key::Ctrl('w') => app_state.cut_to_current_word_start(),
-                Key::Ctrl('u') => app_state.clear_query(),
+                Key::Ctrl('w') => cut_to_current_word_start(&mut app_state.query),
+                Key::Ctrl('u') => {
+                    app_state.query.clear();
+                }
                 Key::Ctrl('k') | Key::Up => {
                     // Navigate up (increase selection index)
                     if let Some(selected) = app_state.list_state.selected() {
@@ -266,7 +258,9 @@ pub fn interactive_mode(
                         break;
                     }
                 }
-                Key::Backspace => app_state.backspace(),
+                Key::Backspace => {
+                    app_state.query.pop();
+                }
                 Key::Char('\t') => {
                     // Select next environment
                     match app_state.active_env_index {
@@ -301,17 +295,11 @@ pub fn interactive_mode(
                         }
                     }
                 }
-                Key::Char(c) => app_state.append_to_query(c),
+                Key::Char(c) => app_state.query.push(c),
                 _ => {}
             }
         }
     }
-
-    // Switch back to the original screen
-    drop(terminal);
-
-    // Flush stdout so the list screen is cleared immediately
-    io::stdout().flush().ok();
 
     let result = match app_state.primed {
         None => None,
@@ -327,10 +315,228 @@ pub fn interactive_mode(
     Ok(result)
 }
 
+struct PromptState {
+    query: String,
+    list_state: ListState,
+
+    // Which item in the history list is currently selected. If None, this means that either there
+    // are no filtered options to be selected, or the history pane is not active, meaning the user
+    // is in "query input" move.
+    active_history_item_index: Option<usize>,
+}
+
+impl PromptState {
+    fn new() -> PromptState {
+        PromptState {
+            query: String::new(),
+            list_state: ListState::default(),
+            active_history_item_index: None,
+        }
+    }
+}
+
+/// Given a list of unbound variable names, prompt the user to interactively enter values to bind
+/// them to, and return those created KeyValues. Returning None means the user aborted with Ctrl-C
+/// and we should not send the request.
+pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io::Write>(
+    config: &Config,
+    names: Vec<&str>,
+    stdin: &mut Keys<R>,
+    terminal: &mut Terminal<B>,
+) -> anyhow::Result<Option<Vec<KeyValue>>> {
+    // This will ensure that the cursor is restored even if this function panics, the user presses
+    // Ctrl+C, etc
+    let mut terminal = scopeguard::guard(terminal, |t| {
+        write!(t.backend_mut(), "{}", Show).unwrap();
+    });
+
+    let mut state = PromptState::new();
+    let mut result: Vec<KeyValue> = Vec::new();
+
+    let variable_name_style = Style::default().fg(Color::Cyan);
+
+    // Which item in the `names` vector we are currently prompting for
+    let mut current_name_index = 0;
+
+    let prompt = "> ";
+
+    let history_location = shellexpand::tilde(&config.history_file);
+    let mut history_file = OpenOptions::new()
+        .append(true)
+        .read(true)
+        .create(true)
+        .open(history_location.as_ref())?;
+
+    // Clone the file handle since we need to read from it here, and append to it in the loop
+    let history_reader = BufReader::new(history_file.try_clone()?);
+    let full_history: Vec<String> = history_reader.lines().filter_map(|l| l.ok()).collect();
+
+    let (default_style, highlight_style) = get_list_styles();
+
+    let highlight_symbol = ">> ";
+
+    loop {
+        io::stdout().flush().ok();
+
+        // Fuzzy matching is basically the same as for choosing a request definition
+        let filtered_history_items: Vec<&String> = if state.query.is_empty() {
+            full_history.iter().collect()
+        } else {
+            let mut matching_items: Vec<(isize, &String)> = full_history
+                .iter()
+                .filter_map(|item| {
+                    best_match(&state.query, item).map(|result| (result.score(), item))
+                })
+                .collect();
+
+            matching_items.sort_unstable_by(|(score1, _), (score2, _)| score2.cmp(score1));
+
+            matching_items.iter().map(|(_, item)| *item).collect()
+        };
+
+        state.list_state.select(state.active_history_item_index);
+
+        let num_items = filtered_history_items.len() as u16;
+        let in_history_mode = state.active_history_item_index.is_some();
+        let matching_history_items = filtered_history_items.iter().map(|item| {
+            if in_history_mode {
+                Text::raw(*item)
+            } else {
+                Text::raw(format!("   {}", *item))
+            }
+        });
+
+        let list = List::new(matching_history_items)
+            .start_corner(tui::layout::Corner::BottomLeft)
+            .style(default_style)
+            .highlight_style(highlight_style)
+            .highlight_symbol(highlight_symbol);
+
+        let explanation_text = [
+            Text::raw("Enter a value for "),
+            Text::styled(
+                format!("{}", names[current_name_index]),
+                variable_name_style,
+            ),
+        ];
+        let explanation_widget = Paragraph::new(explanation_text.iter());
+
+        let query_text = [Text::raw(format!("{}{}", prompt, &state.query))];
+        let query_widget = Paragraph::new(query_text.iter());
+
+        terminal.draw(|mut f| {
+            let width = f.size().width;
+            let height = f.size().height;
+
+            // History selection box is all of the screen except the bottom 2 rows
+            let history_rect = tui::layout::Rect::new(0, height - num_items - 2, width, num_items);
+            f.render_stateful_widget(list, history_rect, &mut state.list_state);
+
+            // After that is the prompt/explanation row
+            let explanation_rect = tui::layout::Rect::new(0, height - 2, width, 1);
+            f.render_widget(explanation_widget, explanation_rect);
+
+            // The bottom row is for input
+            let query_rect = tui::layout::Rect::new(0, height - 1, width, 1);
+            f.render_widget(query_widget, query_rect);
+        })?;
+
+        let height = terminal.size()?.height;
+
+        if !in_history_mode {
+            write!(
+                terminal.backend_mut(),
+                "{}",
+                Goto(
+                    prompt.width() as u16 + state.query.width() as u16 + 1,
+                    height
+                )
+            )?;
+        }
+
+        let input = stdin.next();
+        if let Some(Ok(key)) = input {
+            match key {
+                Key::Ctrl('c') => break,
+                Key::Ctrl('w') => cut_to_current_word_start(&mut state.query),
+                Key::Ctrl('u') => {
+                    state.query.clear();
+                }
+                Key::Char('\t') | Key::BackTab => {
+                    if in_history_mode {
+                        state.active_history_item_index = None;
+                        write!(terminal.backend_mut(), "{}", Show)?;
+                    } else {
+                        // Can only move to "history selection" mode if there is actually something
+                        // to select
+                        if !filtered_history_items.is_empty() {
+                            state.active_history_item_index = Some(0);
+                            write!(terminal.backend_mut(), "{}", Hide)?;
+                        }
+                    }
+                }
+                Key::Ctrl('k') | Key::Up => {
+                    if let Some(i) = state.active_history_item_index {
+                        if i < filtered_history_items.len() - 1 {
+                            state.active_history_item_index = Some(i + 1);
+                        }
+                    }
+                }
+                Key::Ctrl('j') | Key::Down => {
+                    if let Some(i) = state.active_history_item_index {
+                        if i > 0 {
+                            state.active_history_item_index = Some(i - 1);
+                        }
+                    }
+                }
+                Key::Char('\n') => {
+                    if let Some(index) = state.active_history_item_index {
+                        let answer =
+                            KeyValue::new(names[current_name_index], filtered_history_items[index]);
+                        result.push(answer);
+                    } else if !&state.query.is_empty() {
+                        // Assume that an empty string answer is never what they want
+                        let answer = KeyValue::new(names[current_name_index], &state.query);
+
+                        // Write the provided answer to the history file
+                        writeln!(history_file, "{}", &answer.value)?;
+
+                        result.push(answer);
+                    }
+
+                    // If an answer was pushed, the means the current variable is done and we can
+                    // move on to the next one. We also want to start each variable in "query
+                    // mode", so we reset the active_history_item_index field.
+                    if result.len() == current_name_index + 1 {
+                        current_name_index += 1;
+                        state.active_history_item_index = None;
+                        state.query.clear();
+                        write!(terminal.backend_mut(), "{}", Show)?;
+                        if current_name_index >= names.len() {
+                            break;
+                        }
+                    }
+                }
+                Key::Backspace => {
+                    state.query.pop();
+                }
+                Key::Char(c) => state.query.push(c),
+                _ => {}
+            }
+        }
+    }
+
+    if result.len() == names.len() {
+        // All variables set, go ahead with the request
+        Ok(Some(result))
+    } else {
+        // The user aborted with Ctrl-C, don't send the request
+        Ok(None)
+    }
+}
+
 #[test]
 fn test_cut_to_current_word_start() {
-    let mut state = InteractiveState::new();
-
     let tests = vec![
         ("one two three four", "one two three "),
         ("one two three four ", "one two three "),
@@ -341,8 +547,8 @@ fn test_cut_to_current_word_start() {
     ];
 
     for (start, expected) in tests {
-        state.query = start.to_owned();
-        state.cut_to_current_word_start();
-        assert_eq!(state.query, expected)
+        let mut s = start.to_owned();
+        cut_to_current_word_start(&mut s);
+        assert_eq!(s, expected)
     }
 }

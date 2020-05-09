@@ -41,9 +41,8 @@ fn setup(content: &str, env_content: Option<&str>) -> anyhow::Result<TestFixture
 fn run(fixture: TestFixture) -> anyhow::Result<()> {
     let mut cmd = Command::cargo_bin("main").unwrap();
 
-    // If we don't borrow the env_file here, it will get
-    // dropped (deleted) after this block, and the program
-    // will fail with a "file not found" error.
+    // If we don't borrow the env_file here, it will get dropped (deleted) after this block, and
+    // the program will fail with a "file not found" error.
     if let Some(env_file) = &fixture.env_file {
         cmd.arg("--environment");
         cmd.arg(env_file.path());
@@ -51,6 +50,8 @@ fn run(fixture: TestFixture) -> anyhow::Result<()> {
 
     cmd.arg("--file");
     cmd.arg(fixture.def_file.path());
+
+    cmd.arg("--no-interactive");
     let assert = cmd.assert();
     // let output = assert.get_output();
     // println!("{:?}", output);
@@ -253,17 +254,29 @@ fn test_headers() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_templating() -> anyhow::Result<()> {
+fn test_templating_json() -> anyhow::Result<()> {
     let fixture = setup(
         r#"
     [request]
-    method = "GET"
+    method = "POST"
     url = "__base_url__/{var1}"
 
     [headers]
     headers = [
       { name = "first", value = "{header_1}" },
     ]
+
+    [body]
+    type = "json"
+    content = '''
+    {
+        "{var1}": "{var1}",
+        "an_object": {
+            "inside": "the object",
+            "aa{var1}": "___{var1}"
+        }
+    }
+    '''
     "#,
         Some(
             r#"
@@ -278,8 +291,83 @@ fn test_templating() -> anyhow::Result<()> {
 
     fixture.server.expect(
         Expectation::matching(all_of![
-            request::method_path("GET", "/bar"),
+            request::method_path("POST", "/bar"),
             request::headers(contains(("first", "translated"))),
+            request::body(json_decoded(eq(serde_json::json!({
+                "bar": "bar",
+                "an_object": {
+                  "inside": "the object",
+                  "aabar": "___bar"
+                }
+            }))))
+        ])
+        .respond_with(status_code(200)),
+    );
+
+    run(fixture)
+}
+
+#[test]
+fn test_templating_string() -> anyhow::Result<()> {
+    let fixture = setup(
+        r#"
+    [request]
+    method = "POST"
+    url = "__base_url__/{var1}"
+
+    [body]
+    type = "text"
+    content = "foo{var1}"
+    "#,
+        Some(
+            r#"
+        name = "test_env"
+        variables = [
+          { name = "var1", value = "bar" }
+        ]
+    "#,
+        ),
+    )?;
+
+    fixture.server.expect(
+        Expectation::matching(all_of![
+            request::method_path("POST", "/bar"),
+            request::body("foobar")
+        ])
+        .respond_with(status_code(200)),
+    );
+
+    run(fixture)
+}
+
+#[test]
+fn test_templating_urlencoded() -> anyhow::Result<()> {
+    let fixture = setup(
+        r#"
+    [request]
+    method = "POST"
+    url = "__base_url__/{var1}"
+
+    [body]
+    type = "urlencoded"
+    content = [
+      { name = "{var1}", value = "{var1}" }
+    ]
+    "#,
+        Some(
+            r#"
+        name = "test_env"
+        variables = [
+          { name = "var1", value = "bar" }
+        ]
+    "#,
+        ),
+    )?;
+
+    fixture.server.expect(
+        Expectation::matching(all_of![
+            request::method_path("POST", "/bar"),
+            request::body(url_decoded(contains(("bar", "bar")))),
         ])
         .respond_with(status_code(200)),
     );

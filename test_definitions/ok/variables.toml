@@ -1,0 +1,16 @@
+[request]
+url = "https://httpbin.org/post"
+method = "POST"
+
+[body]
+type = "json"
+content = '''
+{
+  "some_key": "{var1}",
+  "a_number": {var1},
+  "nested": {
+    "{var1}": true,
+    "other": null
+  }
+}'''
+

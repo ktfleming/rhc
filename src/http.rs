@@ -1,7 +1,5 @@
-use crate::keyvalue::KeyValue;
 use crate::request_definition::{Content, RequestDefinition};
 use crate::response::Response;
-use crate::templating::substitute;
 use attohttpc::body;
 
 // Wrapper around attohttpc's PreparedRequest, in order to
@@ -12,22 +10,14 @@ enum OurPreparedRequest {
     Empty(attohttpc::PreparedRequest<body::Empty>),
 }
 
-fn prepare_request(
-    def: RequestDefinition,
-    variables: &[KeyValue],
-) -> anyhow::Result<OurPreparedRequest> {
-    let final_url = substitute(&def.request.url, variables);
-
+fn prepare_request(def: RequestDefinition) -> anyhow::Result<OurPreparedRequest> {
     let mut request_builder =
-        attohttpc::RequestBuilder::try_new(def.request.method.to_http_method(), final_url)?;
+        attohttpc::RequestBuilder::try_new(def.request.method.to_http_method(), &def.request.url)?;
 
     if let Some(headers) = def.headers {
         for header in headers.headers {
-            let name = substitute(&header.name, variables);
-            let name = attohttpc::header::HeaderName::from_bytes(name.as_bytes())?;
-
-            let value = substitute(&header.value, variables);
-            let value = attohttpc::header::HeaderValue::from_str(&value)?;
+            let name = attohttpc::header::HeaderName::from_bytes(&header.name.as_bytes())?;
+            let value = attohttpc::header::HeaderValue::from_str(&header.value)?;
 
             request_builder = request_builder.try_header_append(name, value)?;
         }
@@ -35,10 +25,7 @@ fn prepare_request(
 
     if let Some(query) = def.query {
         for param in query.params {
-            let name = substitute(&param.name, variables);
-            let value = substitute(&param.value, variables);
-
-            request_builder = request_builder.param(name, value);
+            request_builder = request_builder.param(param.name, param.value);
         }
     }
 
@@ -47,8 +34,11 @@ fn prepare_request(
             let prepared = request_builder.try_prepare()?;
             Ok(OurPreparedRequest::Empty(prepared))
         }
-        Some(Content::Json(json)) => {
-            let prepared = request_builder.json(&json)?.try_prepare()?;
+        Some(Content::Json(json_string)) => {
+            // At this point, all variable substitutions have been made, so if the string content
+            // can't be successfully parsed to JSON, this will return an Error.
+            let json_value: serde_json::Value = serde_json::from_str(&json_string)?;
+            let prepared = request_builder.json(&json_value)?.try_prepare()?;
             Ok(OurPreparedRequest::Bytes(prepared))
         }
         Some(Content::Text(text)) => {
@@ -80,7 +70,7 @@ fn test_bad_files() {
             path.to_string_lossy()
         );
 
-        let prepared = prepare_request(def.unwrap(), &vec![]);
+        let prepared = prepare_request(def.unwrap());
         assert!(
             prepared.is_err(),
             "expected file {:?} to error on calling prepare_request, but it was OK",
@@ -89,8 +79,8 @@ fn test_bad_files() {
     }
 }
 
-pub fn send_request(def: RequestDefinition, variables: &[KeyValue]) -> anyhow::Result<Response> {
-    let prepared = prepare_request(def, variables)?;
+pub fn send_request(def: RequestDefinition) -> anyhow::Result<Response> {
+    let prepared = prepare_request(def)?;
 
     let res = match prepared {
         OurPreparedRequest::Empty(mut req) => req.send(),

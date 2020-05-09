@@ -6,6 +6,7 @@ use std::path::Path;
 pub struct Config {
     pub request_definition_directory: String,
     pub environment_directory: String,
+    pub history_file: String,
 }
 
 impl Config {
