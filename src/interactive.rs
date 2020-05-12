@@ -498,8 +498,11 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
                         // Assume that an empty string answer is never what they want
                         let answer = KeyValue::new(names[current_name_index], &state.query);
 
-                        // Write the provided answer to the history file
-                        writeln!(history_file, "{}", &answer.value)?;
+                        // Write the provided answer to the history file, if it was not already
+                        // present
+                        if !full_history.contains(&answer.value) {
+                            writeln!(history_file, "{}", &answer.value)?;
+                        }
 
                         result.push(answer);
                     }
