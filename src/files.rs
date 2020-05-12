@@ -35,9 +35,10 @@ fn get_all_toml_files(dir: &str) -> Vec<PathBuf> {
 /// any can't be parsed, return an error to display to the user; this way any malformed TOML files
 /// won't cause the whole program to be unusable.
 pub fn list_all_choices(config: &Config) -> Vec<Choice> {
+    let prefix_length = shellexpand::tilde(&config.request_definition_directory).len();
     let mut choices: Vec<Choice> = get_all_toml_files(&config.request_definition_directory)
         .into_iter()
-        .map(Choice::new)
+        .map(|path| Choice::new(path, prefix_length))
         .collect();
 
     choices.sort();

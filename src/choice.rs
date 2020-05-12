@@ -11,6 +11,11 @@ use unicode_width::UnicodeWidthStr;
 /// Items that appear in the interactive list that the user can select.
 pub struct Choice {
     pub path: PathBuf,
+
+    // The length of the common directory prefix that should be trimmed from the beginning of each
+    // path for display/search purposes
+    pub prefix_length: usize,
+
     pub request_definition: Option<anyhow::Result<RequestDefinition>>,
 }
 
@@ -36,10 +41,11 @@ impl PartialEq for Choice {
 }
 
 impl Choice {
-    pub fn new(path: PathBuf) -> Choice {
+    pub fn new(path: PathBuf, prefix_length: usize) -> Choice {
         Choice {
             path,
             request_definition: None,
+            prefix_length,
         }
     }
 
@@ -56,8 +62,16 @@ impl Choice {
         }
     }
 
+    // Also used for displaying/searching. The full path with the common prefix trimmed off the
+    // beginning.
+    pub fn trimmed_path(&self) -> String {
+        let path_str = &self.path.to_string_lossy();
+        path_str[(self.prefix_length + 1)..].to_owned()
+    }
+
     pub fn to_text_widget(&self, width: usize, variables: Option<&Vec<KeyValue>>) -> Text {
-        let path = self.path.to_string_lossy();
+        // let path = self.path.to_string_lossy();
+        let path = self.trimmed_path();
 
         // Width of everything past the path, needs to be padded
         let right_part_width = width - path.width();

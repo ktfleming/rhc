@@ -153,7 +153,7 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
                 .filter_map(|choice| {
                     let target = format!(
                         "{}{}",
-                        &choice.path.to_string_lossy(),
+                        &choice.trimmed_path(),
                         choice.get_url_or_blank(active_vars)
                     );
                     best_match(&app_state.query, &target).map(|result| (result.score(), choice))
