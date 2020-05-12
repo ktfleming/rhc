@@ -1,12 +1,10 @@
 use crate::keyvalue::KeyValue;
 use crate::request_definition::RequestDefinition;
 use crate::templating::substitute;
-use pad::{Alignment, PadStr};
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::path::PathBuf;
 use tui::widgets::Text;
-use unicode_width::UnicodeWidthStr;
 
 /// Items that appear in the interactive list that the user can select.
 pub struct Choice {
@@ -50,7 +48,7 @@ impl Choice {
     }
 
     // Used for displaying and as a target for searching
-    pub fn get_url_or_blank<'a>(&'a self, variables: Option<&'a Vec<KeyValue>>) -> Cow<'a, str> {
+    pub fn url_or_blank<'a>(&'a self, variables: Option<&'a Vec<KeyValue>>) -> Cow<'a, str> {
         match &self.request_definition {
             Some(Ok(request_definition)) => {
                 let initial_url = &request_definition.request.url;
@@ -62,32 +60,39 @@ impl Choice {
         }
     }
 
-    // Also used for displaying/searching. The full path with the common prefix trimmed off the
-    // beginning.
-    pub fn trimmed_path(&self) -> String {
-        let path_str = &self.path.to_string_lossy();
-        path_str[(self.prefix_length + 1)..].to_owned()
+    pub fn description_or_blank(&self) -> &str {
+        match &self.request_definition {
+            Some(Ok(def)) => def.metadata.as_ref().map_or("", |m| &m.description),
+            _ => "",
+        }
     }
 
-    pub fn to_text_widget(&self, width: usize, variables: Option<&Vec<KeyValue>>) -> Text {
-        // let path = self.path.to_string_lossy();
-        let path = self.trimmed_path();
+    // Also used for displaying/searching. The full path with the common prefix trimmed off the
+    // beginning, and the ".toml" extension trimmed from the end
+    pub fn trimmed_path(&self) -> String {
+        let path_str = &self.path.to_string_lossy();
+        path_str[(self.prefix_length + 1)..(path_str.len() - 5)].to_owned()
+    }
 
-        // Width of everything past the path, needs to be padded
-        let right_part_width = width - path.width();
+    pub fn to_text_widget(&self, variables: Option<&Vec<KeyValue>>) -> Text {
+        let path = self.trimmed_path();
 
         match &self.request_definition {
             None => Text::raw(path),
-            Some(Ok(_)) => {
-                let url = self.get_url_or_blank(variables);
-                let right_part =
-                    url.pad_to_width_with_alignment(right_part_width, Alignment::Right);
-                Text::raw(format!("{}{}", path, right_part))
+            Some(Ok(def)) => {
+                let url = self.url_or_blank(variables);
+                if let Some(metadata) = &def.metadata {
+                    Text::raw(format!(
+                        "{}  |  {}  |  {}",
+                        path, url, &metadata.description
+                    ))
+                } else {
+                    Text::raw(format!("{}  |  {}", path, url))
+                }
             }
             Some(Err(_)) => {
-                let right_part = "(Could not parse definition file)"
-                    .pad_to_width_with_alignment(right_part_width, Alignment::Right);
-                Text::raw(format!("{}{}", path, right_part))
+                let right_part = "(Could not parse definition file)";
+                Text::raw(format!("{}  |  {}", path, right_part))
             }
         }
     }

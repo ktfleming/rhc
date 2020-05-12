@@ -66,18 +66,17 @@ fn run() -> anyhow::Result<()> {
 
     // If term_tools is None (due to the --no-interactive flag), the interactive functions will be
     // skipped and we'll act like they just returned None.
-    let mut term_tools = match no_interactive {
-        false => {
-            // Use the same async_stdin iterator and terminal for all interactive prompts to make everything smooth.
-            let stdout = std::io::stdout().into_raw_mode()?;
-            let stdout = AlternateScreen::from(stdout);
-            let backend = TermionBackend::new(stdout);
-            let terminal = Terminal::new(backend)?;
-            let stdin = termion::async_stdin().keys();
+    let mut term_tools = if no_interactive {
+        None
+    } else {
+        // Use the same async_stdin iterator and terminal for all interactive prompts to make everything smooth.
+        let stdout = std::io::stdout().into_raw_mode()?;
+        let stdout = AlternateScreen::from(stdout);
+        let backend = TermionBackend::new(stdout);
+        let terminal = Terminal::new(backend)?;
+        let stdin = termion::async_stdin().keys();
 
-            Some((stdin, terminal))
-        }
-        true => None,
+        Some((stdin, terminal))
     };
 
     // If the user specified a request definition file, just use that; otherwise, enter interactive
@@ -115,7 +114,7 @@ fn run() -> anyhow::Result<()> {
         let unbound_variables = templating::list_unbound_variables(&request_definition);
 
         let additional_vars: Option<Vec<KeyValue>> = {
-            if unbound_variables.len() > 0 {
+            if !unbound_variables.is_empty() {
                 match &mut term_tools {
                     Some((ref mut stdin, ref mut terminal)) => interactive::prompt_for_variables(
                         &config,

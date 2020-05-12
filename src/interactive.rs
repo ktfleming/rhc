@@ -4,7 +4,6 @@ use crate::environment::Environment;
 use crate::files;
 use crate::keyvalue::KeyValue;
 use crate::request_definition::RequestDefinition;
-use scopeguard;
 use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::io::{BufRead, BufReader};
@@ -110,6 +109,7 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
     });
 
     let (default_style, highlight_style) = get_list_styles();
+    let prompt_style = Style::default().fg(Color::Blue);
 
     // Load all the environments available
     let environments: Vec<(Environment, String)> = files::list_all_environments(&config);
@@ -144,7 +144,7 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
             None => "> ".to_string(),
         };
 
-        // Use fuzzy matching on the Choices' path, and name if present
+        // Use fuzzy matching on the Choices' path, and URL/description if present
         let filtered_choices: Vec<&Choice> = if app_state.query.is_empty() {
             inner_guard.iter().collect()
         } else {
@@ -152,9 +152,10 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
                 .iter()
                 .filter_map(|choice| {
                     let target = format!(
-                        "{}{}",
+                        "{}{}{}",
                         &choice.trimmed_path(),
-                        choice.get_url_or_blank(active_vars)
+                        choice.url_or_blank(active_vars),
+                        choice.description_or_blank(),
                     );
                     best_match(&app_state.query, &target).map(|result| (result.score(), choice))
                 })
@@ -192,9 +193,7 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
             let items = filtered_choices
                 .iter()
                 // Have to make room for the highlight symbol, and a 1-column margin on the right
-                .map(|choice| {
-                    choice.to_text_widget(width as usize - highlight_symbol.len() - 1, active_vars)
-                });
+                .map(|choice| choice.to_text_widget(active_vars));
             let list = List::new(items)
                 .style(default_style)
                 .start_corner(tui::layout::Corner::BottomLeft)
@@ -208,8 +207,11 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
 
             // The bottom row is used for the query input
             let query_rect = tui::layout::Rect::new(0, height - 1, width, 1);
-            let text = [Text::raw(format!("{}{}", prompt, &app_state.query))];
-            let input = Paragraph::new(text.iter());
+            let query_text = [
+                Text::Styled((&prompt).into(), prompt_style),
+                Text::raw(&app_state.query),
+            ];
+            let input = Paragraph::new(query_text.iter());
 
             f.render_widget(input, query_rect);
         })?;
@@ -414,10 +416,7 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
 
         let explanation_text = [
             Text::raw("Enter a value for "),
-            Text::styled(
-                format!("{}", names[current_name_index]),
-                variable_name_style,
-            ),
+            Text::styled(names[current_name_index], variable_name_style),
         ];
         let explanation_widget = Paragraph::new(explanation_text.iter());
 

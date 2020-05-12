@@ -5,7 +5,7 @@ use std::path::Path;
 
 #[derive(Deserialize, Debug)]
 pub struct Metadata {
-    pub name: String,
+    pub description: String,
 }
 
 #[derive(Deserialize, Debug)]

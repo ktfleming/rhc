@@ -1,5 +1,5 @@
 [metadata]
-name = "httpbin post"
+description = "httpbin post"
 
 [request]
 url = "https://httpbin.org/post"
