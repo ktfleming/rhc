@@ -444,6 +444,7 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
         let height = terminal.size()?.height;
 
         if !in_history_mode {
+            write!(terminal.backend_mut(), "{}", Show)?;
             write!(
                 terminal.backend_mut(),
                 "{}",
@@ -465,7 +466,6 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
                 Key::Char('\t') | Key::BackTab => {
                     if in_history_mode {
                         state.active_history_item_index = None;
-                        write!(terminal.backend_mut(), "{}", Show)?;
                     } else {
                         // Can only move to "history selection" mode if there is actually something
                         // to select
