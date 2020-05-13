@@ -7,7 +7,7 @@ use crate::request_definition::RequestDefinition;
 use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use sublime_fuzzy::best_match;
 use termion::cursor::{Goto, Hide, Show};
@@ -72,7 +72,7 @@ impl InteractiveState {
 
 pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Write>(
     config: &Config,
-    env_arg: Option<&str>,
+    env_path: Option<&Path>,
     stdin: &mut Keys<R>,
     terminal: &mut Terminal<B>,
 ) -> anyhow::Result<Option<(RequestDefinition, Option<Environment>)>> {
@@ -112,13 +112,13 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
     let prompt_style = Style::default().fg(Color::Blue);
 
     // Load all the environments available
-    let environments: Vec<(Environment, String)> = files::list_all_environments(&config);
+    let environments: Vec<(Environment, PathBuf)> = files::list_all_environments(&config);
 
     // If the user started with the --environment flag, find the matching environment, if there is
     // one, and set that as the selected environment.
-    if let Some(env_arg) = env_arg {
+    if let Some(env_path) = env_path {
         for (i, (_, path)) in environments.iter().enumerate() {
-            if path == env_arg {
+            if path == env_path {
                 app_state.active_env_index = Some(i);
             }
         }

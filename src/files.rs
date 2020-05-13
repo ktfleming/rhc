@@ -46,14 +46,9 @@ pub fn list_all_choices(config: &Config) -> Vec<Choice> {
     choices
 }
 
-pub fn list_all_environments(config: &Config) -> Vec<(Environment, String)> {
-    let envs: Vec<(Environment, String)> = get_all_toml_files(&config.environment_directory)
+pub fn list_all_environments(config: &Config) -> Vec<(Environment, PathBuf)> {
+    get_all_toml_files(&config.environment_directory)
         .into_iter()
-        .filter_map(|path| {
-            Environment::new(&path)
-                .ok()
-                .map(|env| (env, path.to_string_lossy().into_owned()))
-        })
-        .collect();
-    envs
+        .filter_map(|path| Environment::new(&path).ok().map(|env| (env, path)))
+        .collect()
 }

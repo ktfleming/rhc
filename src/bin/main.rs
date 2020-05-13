@@ -1,5 +1,5 @@
 use anyhow::Context;
-use clap::{App, Arg};
+use rustrest::args::Args;
 use rustrest::config::Config;
 use rustrest::environment::Environment;
 use rustrest::files::load_file;
@@ -11,6 +11,7 @@ use rustrest::templating;
 use std::borrow::Cow;
 use std::io::Write;
 use std::path::Path;
+use structopt::StructOpt;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
@@ -28,45 +29,15 @@ fn main() {
 }
 
 fn run() -> anyhow::Result<()> {
-    let matches = App::new("rustrest")
-        .arg(
-            Arg::with_name("file")
-                .short("f")
-                .long("file")
-                .help("The request definition file to use")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("environment")
-                .short("e")
-                .long("environment")
-                .help("The environment file to use")
-                .takes_value(true),
-        )
-        .arg(Arg::with_name("no_interactive").long("no-interactive"))
-        .get_matches();
-
+    let args = Args::from_args();
+    println!("{:?}", args);
     let config_location: Cow<str> = shellexpand::tilde("~/.config/rustrest/config.toml");
     let config =
         Config::new(Path::new(config_location.as_ref())).context("Could not load config file")?;
 
-    let request_definition_arg = matches.value_of("file");
-    let env_arg = matches.value_of("environment");
-
-    // The environment arg can be applied to both interactive and non-interactive modes, so we
-    // might as well load the specified environment now.
-    let environment: Option<Environment> = env_arg
-        .map(|path| load_file(Path::new(path), Environment::new, "environment"))
-        .transpose()?;
-
-    // If this flag is set, the termion Terminal will never be allocated and interactive mode is
-    // not possible. Mostly to work around problems doing integration tests, where it would crash
-    // with "Inappropriate ioctl for device" as soon as the Terminal was allocated.
-    let no_interactive = matches.is_present("no_interactive");
-
     // If term_tools is None (due to the --no-interactive flag), the interactive functions will be
     // skipped and we'll act like they just returned None.
-    let mut term_tools = if no_interactive {
+    let mut term_tools = if args.no_interactive {
         None
     } else {
         // Use the same async_stdin iterator and terminal for all interactive prompts to make everything smooth.
@@ -82,20 +53,26 @@ fn run() -> anyhow::Result<()> {
     // If the user specified a request definition file, just use that; otherwise, enter interactive
     // mode to allow them to choose a request definition.
     let result: Option<(RequestDefinition, Vec<KeyValue>)> = {
-        match (request_definition_arg, &mut term_tools) {
+        match (args.file, &mut term_tools) {
             (Some(path), _) => {
-                let def: RequestDefinition = load_file(
-                    Path::new(path),
-                    RequestDefinition::new,
-                    "request definition",
-                )?;
+                let def: RequestDefinition =
+                    load_file(&path, RequestDefinition::new, "request definition")?;
+                let environment: Option<Environment> = args
+                    .environment
+                    .map(|path| load_file(&path, Environment::new, "environment"))
+                    .transpose()?;
+
                 let vars: Vec<KeyValue> = environment.map_or(vec![], |e| e.variables);
 
                 Some((def, vars))
             }
             (None, Some((ref mut stdin, ref mut terminal))) => {
-                let interactive_result =
-                    interactive::interactive_mode(&config, env_arg, stdin, terminal)?;
+                let interactive_result = interactive::interactive_mode(
+                    &config,
+                    args.environment.as_deref(),
+                    stdin,
+                    terminal,
+                )?;
                 interactive_result.map(|(def, env)| (def, env.map_or(vec![], |e| e.variables)))
             }
             (None, None) => None,
