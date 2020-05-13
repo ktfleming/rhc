@@ -1,13 +1,13 @@
 use anyhow::Context;
-use rustrest::args::Args;
-use rustrest::config::Config;
-use rustrest::environment::Environment;
-use rustrest::files::load_file;
-use rustrest::http;
-use rustrest::interactive;
-use rustrest::keyvalue::KeyValue;
-use rustrest::request_definition::RequestDefinition;
-use rustrest::templating;
+use rhc::args::Args;
+use rhc::config::Config;
+use rhc::environment::Environment;
+use rhc::files::load_file;
+use rhc::http;
+use rhc::interactive;
+use rhc::keyvalue::KeyValue;
+use rhc::request_definition::RequestDefinition;
+use rhc::templating;
 use std::borrow::Cow;
 use std::io::Write;
 use std::path::Path;
@@ -31,7 +31,7 @@ fn main() {
 fn run() -> anyhow::Result<()> {
     let args = Args::from_args();
     println!("{:?}", args);
-    let config_location: Cow<str> = shellexpand::tilde("~/.config/rustrest/config.toml");
+    let config_location: Cow<str> = shellexpand::tilde("~/.config/rhc/config.toml");
     let config =
         Config::new(Path::new(config_location.as_ref())).context("Could not load config file")?;
 

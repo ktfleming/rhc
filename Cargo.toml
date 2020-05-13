@@ -1,5 +1,5 @@
 [package]
-name = "rustrest"
+name = "rhc"
 version = "0.1.0"
 authors = ["Kevin Fleming <kvnflm@gmail.com>"]
 edition = "2018"

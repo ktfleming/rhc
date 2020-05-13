@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
-#[structopt(name = "rustrest")]
+#[structopt(name = "rhc")]
 pub struct Args {
     #[structopt(short, long, parse(from_os_str))]
     pub file: Option<PathBuf>,
