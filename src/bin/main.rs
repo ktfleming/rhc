@@ -8,6 +8,7 @@ use rhc::interactive;
 use rhc::keyvalue::KeyValue;
 use rhc::request_definition::RequestDefinition;
 use rhc::templating;
+use spinners::{Spinner, Spinners};
 use std::borrow::Cow;
 use std::io::Write;
 use std::path::Path;
@@ -118,7 +119,10 @@ fn run() -> anyhow::Result<()> {
             // Do the final substition with the user-provided variables
             templating::substitute_all(&mut request_definition, &additional_vars);
 
+            let sp = Spinner::new(Spinners::Dots, "Sending request...".into());
+
             let res = http::send_request(request_definition).context("Failed sending request")?;
+            sp.stop();
             println!("{}", res);
         }
     }
