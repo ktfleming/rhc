@@ -7,5 +7,4 @@ pub mod http;
 pub mod interactive;
 pub mod keyvalue;
 pub mod request_definition;
-pub mod response;
 pub mod templating;

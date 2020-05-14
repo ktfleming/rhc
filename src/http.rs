@@ -1,6 +1,6 @@
 use crate::request_definition::{Content, RequestDefinition};
-use crate::response::Response;
 use attohttpc::body;
+use attohttpc::Response;
 
 // Wrapper around attohttpc's PreparedRequest, in order to
 // make the types simpler
@@ -88,16 +88,5 @@ pub fn send_request(def: RequestDefinition) -> anyhow::Result<Response> {
         OurPreparedRequest::Bytes(mut req) => req.send(),
     }?;
 
-    let res = transform_response(res)?;
-
     Ok(res)
-}
-
-fn transform_response(res: attohttpc::Response) -> anyhow::Result<Response> {
-    let status_code = res.status();
-    let body = res.text()?;
-
-    let our_response = Response { body, status_code };
-
-    Ok(our_response)
 }

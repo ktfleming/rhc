@@ -31,7 +31,6 @@ fn main() {
 
 fn run() -> anyhow::Result<()> {
     let args = Args::from_args();
-    println!("{:?}", args);
     let config_location: Cow<str> = shellexpand::tilde("~/.config/rhc/config.toml");
     let config =
         Config::new(Path::new(config_location.as_ref())).context("Could not load config file")?;
@@ -123,7 +122,33 @@ fn run() -> anyhow::Result<()> {
 
             let res = http::send_request(request_definition).context("Failed sending request")?;
             sp.stop();
-            println!("{}", res);
+            println!("\n");
+            println!("{}\n", res.status());
+            let headers = res.headers();
+            for (name, value) in headers {
+                let value = value.to_str()?;
+                println!("{}: {}", name.as_str(), value);
+            }
+
+            println!("\n");
+
+            let is_json = headers
+                .get("content-type")
+                .map(|h| {
+                    let value = h.to_str().unwrap_or("");
+
+                    value == "application/json"
+                        || value == "text/json"
+                        || value == "application/javascript"
+                })
+                .unwrap_or(false);
+
+            let body = res.text()?;
+
+            if is_json {
+                // TODO: color the JSON
+            }
+            println!("{}", body);
         }
     }
     Ok(())
