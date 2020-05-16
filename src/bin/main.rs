@@ -10,20 +10,20 @@ use rhc::request_definition::RequestDefinition;
 use rhc::templating;
 use spinners::{Spinner, Spinners};
 use std::borrow::Cow;
-use std::io::Write;
+use std::io::{Stdout, Write};
 use std::path::Path;
 use structopt::StructOpt;
-use termion::input::TermRead;
-use termion::raw::IntoRawMode;
-use termion::screen::AlternateScreen;
-use tui::backend::TermionBackend;
-use tui::Terminal;
 use syntect::easy::HighlightLines;
+use syntect::highlighting::{Style, Theme, ThemeSet};
 use syntect::parsing::SyntaxSet;
-use syntect::highlighting::{ThemeSet, Style, Theme};
 use syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
 use syntect::LoadingError;
-use std::error::Error;
+use termion::input::{Keys, TermRead};
+use termion::raw::{IntoRawMode, RawTerminal};
+use termion::screen::AlternateScreen;
+use termion::AsyncReader;
+use tui::backend::TermionBackend;
+use tui::Terminal;
 
 fn main() {
     if let Err(e) = run() {
@@ -35,32 +35,38 @@ fn main() {
     }
 }
 
+type OurTerminal = Terminal<TermionBackend<AlternateScreen<RawTerminal<Stdout>>>>;
+
+/// Set up/create the terminal for use in interactive mode.
+fn get_terminal() -> anyhow::Result<OurTerminal> {
+    let stdout = std::io::stdout().into_raw_mode()?;
+    let stdout = AlternateScreen::from(stdout);
+    let backend = TermionBackend::new(stdout);
+    let t = Terminal::new(backend)?;
+
+    Ok(t)
+}
+
 fn run() -> anyhow::Result<()> {
     let args = Args::from_args();
     let config_location: Cow<str> = shellexpand::tilde("~/.config/rhc/config.toml");
     let config =
         Config::new(Path::new(config_location.as_ref())).context("Could not load config file")?;
 
-    // If term_tools is None (due to the --no-interactive flag), the interactive functions will be
-    // skipped and we'll act like they just returned None.
-    let mut term_tools = if args.no_interactive {
-        None
-    } else {
-        // Use the same async_stdin iterator and terminal for all interactive prompts to make everything smooth.
-        let stdout = std::io::stdout().into_raw_mode()?;
-        let stdout = AlternateScreen::from(stdout);
-        let backend = TermionBackend::new(stdout);
-        let terminal = Terminal::new(backend)?;
-        let stdin = termion::async_stdin().keys();
-
-        Some((stdin, terminal))
-    };
+    // These two are necessary for use in interactive mode; but conversely, when not at an
+    // interactive shell, trying to create this `Terminal` will cause an error. So they start as
+    // None, and will be created on-demand if necessary (no request definition file provided, or
+    // unbound variables exist).
+    // TODO: also check if the current shell is interactive. If not, interactive mode cannot be
+    // used at all
+    let mut keys: Option<Keys<AsyncReader>> = None;
+    let mut terminal: Option<Terminal<TermionBackend<AlternateScreen<RawTerminal<Stdout>>>>> = None;
 
     // If the user specified a request definition file, just use that; otherwise, enter interactive
     // mode to allow them to choose a request definition.
     let result: Option<(RequestDefinition, Vec<KeyValue>)> = {
-        match (args.file, &mut term_tools) {
-            (Some(path), _) => {
+        match args.file {
+            Some(path) => {
                 let def: RequestDefinition =
                     load_file(&path, RequestDefinition::new, "request definition")?;
                 let environment: Option<Environment> = args
@@ -72,16 +78,18 @@ fn run() -> anyhow::Result<()> {
 
                 Some((def, vars))
             }
-            (None, Some((ref mut stdin, ref mut terminal))) => {
+            None => {
+                // `terminal` and `keys` must be None at this point, so just create them
+                terminal = Some(get_terminal()?);
+                keys = Some(termion::async_stdin().keys());
                 let interactive_result = interactive::interactive_mode(
                     &config,
                     args.environment.as_deref(),
-                    stdin,
-                    terminal,
+                    &mut keys.as_mut().unwrap(),
+                    &mut terminal.as_mut().unwrap(),
                 )?;
                 interactive_result.map(|(def, env)| (def, env.map_or(vec![], |e| e.variables)))
             }
-            (None, None) => None,
         }
     };
 
@@ -98,22 +106,25 @@ fn run() -> anyhow::Result<()> {
 
         let additional_vars: Option<Vec<KeyValue>> = {
             if !unbound_variables.is_empty() {
-                match &mut term_tools {
-                    Some((ref mut stdin, ref mut terminal)) => interactive::prompt_for_variables(
-                        &config,
-                        unbound_variables,
-                        stdin,
-                        terminal,
-                    )?,
-                    None => Some(vec![]),
+                // `terminal` and `keys` could have been initialized above, so only initialize them
+                // here if necessary.
+                if keys.is_none() {
+                    terminal = Some(get_terminal()?);
+                    keys = Some(termion::async_stdin().keys());
                 }
+                interactive::prompt_for_variables(
+                    &config,
+                    unbound_variables,
+                    &mut keys.as_mut().unwrap(),
+                    &mut terminal.as_mut().unwrap(),
+                )?
             } else {
                 Some(vec![])
             }
         };
 
         // Switch back to the original screen
-        drop(term_tools);
+        drop(terminal);
 
         // Flush stdout so the interactive terminal screen is cleared immediately
         std::io::stdout().flush().ok();
@@ -158,13 +169,15 @@ fn run() -> anyhow::Result<()> {
 
                 let theme: Result<Cow<Theme>, LoadingError> = match config.theme.as_ref() {
                     None => Ok(Cow::Borrowed(&ts.themes["base16-eighties.dark"])),
-                    Some(theme_file) => {
-                        ts.themes.get(theme_file).map(|t| Ok(Cow::Borrowed(t))).unwrap_or_else(|| {
+                    Some(theme_file) => ts
+                        .themes
+                        .get(theme_file)
+                        .map(|t| Ok(Cow::Borrowed(t)))
+                        .unwrap_or_else(|| {
                             let expanded: Cow<str> = shellexpand::tilde(theme_file);
                             let path: &Path = Path::new(expanded.as_ref());
-                            ThemeSet::get_theme(path).map(|t| Cow::Owned(t))
-                        })
-                    }
+                            ThemeSet::get_theme(path).map(Cow::Owned)
+                        }),
                 };
 
                 match theme {
@@ -177,14 +190,15 @@ fn run() -> anyhow::Result<()> {
                         }
                     }
                     Err(e) => {
-                        eprintln!("Could not load theme at {}, continuing with no theme", &config.theme.unwrap());
+                        eprintln!(
+                            "Could not load theme at {}, continuing with no theme",
+                            &config.theme.unwrap()
+                        );
                         eprintln!("{}", e);
 
                         println!("{}", body);
-                        
                     }
                 }
-
             } else {
                 println!("{}", body);
             }

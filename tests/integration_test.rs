@@ -51,7 +51,6 @@ fn run(fixture: TestFixture) -> anyhow::Result<()> {
     cmd.arg("--file");
     cmd.arg(fixture.def_file.path());
 
-    cmd.arg("--no-interactive");
     let assert = cmd.assert();
     // let output = assert.get_output();
     // println!("{:?}", output);
