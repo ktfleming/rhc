@@ -18,6 +18,12 @@ use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 use tui::Terminal;
+use syntect::easy::HighlightLines;
+use syntect::parsing::SyntaxSet;
+use syntect::highlighting::{ThemeSet, Style, Theme};
+use syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
+use syntect::LoadingError;
+use std::error::Error;
 
 fn main() {
     if let Err(e) = run() {
@@ -146,9 +152,42 @@ fn run() -> anyhow::Result<()> {
             let body = res.text()?;
 
             if is_json {
-                // TODO: color the JSON
+                let ps = SyntaxSet::load_defaults_newlines();
+                let syntax = ps.find_syntax_by_extension("json").unwrap();
+                let ts = ThemeSet::load_defaults();
+
+                let theme: Result<Cow<Theme>, LoadingError> = match config.theme.as_ref() {
+                    None => Ok(Cow::Borrowed(&ts.themes["base16-eighties.dark"])),
+                    Some(theme_file) => {
+                        ts.themes.get(theme_file).map(|t| Ok(Cow::Borrowed(t))).unwrap_or_else(|| {
+                            let expanded: Cow<str> = shellexpand::tilde(theme_file);
+                            let path: &Path = Path::new(expanded.as_ref());
+                            ThemeSet::get_theme(path).map(|t| Cow::Owned(t))
+                        })
+                    }
+                };
+
+                match theme {
+                    Ok(theme) => {
+                        let mut h = HighlightLines::new(syntax, theme.as_ref());
+                        for line in LinesWithEndings::from(&body) {
+                            let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
+                            let escaped = as_24_bit_terminal_escaped(&ranges[..], false);
+                            print!("{}", escaped);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Could not load theme at {}, continuing with no theme", &config.theme.unwrap());
+                        eprintln!("{}", e);
+
+                        println!("{}", body);
+                        
+                    }
+                }
+
+            } else {
+                println!("{}", body);
             }
-            println!("{}", body);
         }
     }
     Ok(())

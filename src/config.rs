@@ -7,6 +7,7 @@ pub struct Config {
     pub request_definition_directory: String,
     pub environment_directory: String,
     pub history_file: String,
+    pub theme: Option<String>,
 }
 
 impl Config {
