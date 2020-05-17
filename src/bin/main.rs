@@ -171,9 +171,9 @@ fn run() -> anyhow::Result<()> {
                 .map(|h| {
                     let value = h.to_str().unwrap_or("");
 
-                    value == "application/json"
-                        || value == "text/json"
-                        || value == "application/javascript"
+                    value.contains("application/json")
+                        || value.contains("text/json")
+                        || value.contains("application/javascript")
                 })
                 .unwrap_or(false);
 
