@@ -8,6 +8,9 @@ pub struct Config {
     pub environment_directory: String,
     pub history_file: String,
     pub theme: Option<String>,
+    pub connect_timeout_seconds: Option<u64>,
+    pub read_timeout_seconds: Option<u64>,
+    pub timeout_seconds: Option<u64>,
 }
 
 impl Config {

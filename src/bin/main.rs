@@ -155,7 +155,8 @@ fn run() -> anyhow::Result<()> {
                 sp = Some(Spinner::new(Spinners::Dots, "Sending request...".into()));
             }
 
-            let res = http::send_request(request_definition).context("Failed sending request")?;
+            let res = http::send_request(request_definition, &config)
+                .context("Failed sending request")?;
             sp.map(|s| s.stop());
             println!("\n");
             println!("{}\n", res.status());

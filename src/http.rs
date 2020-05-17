@@ -1,6 +1,8 @@
+use crate::config::Config;
 use crate::request_definition::{Content, RequestDefinition};
 use attohttpc::body;
 use attohttpc::Response;
+use std::time::Duration;
 
 // Wrapper around attohttpc's PreparedRequest, in order to
 // make the types simpler
@@ -10,9 +12,21 @@ enum OurPreparedRequest {
     Empty(attohttpc::PreparedRequest<body::Empty>),
 }
 
-fn prepare_request(def: RequestDefinition) -> anyhow::Result<OurPreparedRequest> {
+fn prepare_request(def: RequestDefinition, config: &Config) -> anyhow::Result<OurPreparedRequest> {
     let mut request_builder =
         attohttpc::RequestBuilder::try_new(def.request.method.to_http_method(), &def.request.url)?;
+
+    if let Some(seconds) = config.connect_timeout_seconds {
+        request_builder = request_builder.connect_timeout(Duration::from_secs(seconds));
+    }
+
+    if let Some(seconds) = config.read_timeout_seconds {
+        request_builder = request_builder.read_timeout(Duration::from_secs(seconds));
+    }
+
+    if let Some(seconds) = config.timeout_seconds {
+        request_builder = request_builder.timeout(Duration::from_secs(seconds));
+    }
 
     if let Some(headers) = def.headers {
         for header in headers.headers {
@@ -70,7 +84,17 @@ fn test_bad_files() {
             path.to_string_lossy()
         );
 
-        let prepared = prepare_request(def.unwrap());
+        let empty_config = Config {
+            request_definition_directory: "fake".to_string(),
+            environment_directory: "fake".to_string(),
+            history_file: "fake".to_string(),
+            theme: None,
+            connect_timeout_seconds: None,
+            read_timeout_seconds: None,
+            timeout_seconds: None,
+        };
+
+        let prepared = prepare_request(def.unwrap(), &empty_config);
         assert!(
             prepared.is_err(),
             "expected file {:?} to error on calling prepare_request, but it was OK",
@@ -79,8 +103,8 @@ fn test_bad_files() {
     }
 }
 
-pub fn send_request(def: RequestDefinition) -> anyhow::Result<Response> {
-    let prepared = prepare_request(def)?;
+pub fn send_request(def: RequestDefinition, config: &Config) -> anyhow::Result<Response> {
+    let prepared = prepare_request(def, config)?;
 
     let res = match prepared {
         OurPreparedRequest::Empty(mut req) => req.send(),
