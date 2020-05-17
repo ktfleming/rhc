@@ -1,4 +1,5 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context};
+use atty::Stream;
 use rhc::args::Args;
 use rhc::config::Config;
 use rhc::environment::Environment;
@@ -53,18 +54,18 @@ fn run() -> anyhow::Result<()> {
     let config =
         Config::new(Path::new(config_location.as_ref())).context("Could not load config file")?;
 
+    let is_tty = atty::is(Stream::Stdout);
+
     // These two are necessary for use in interactive mode; but conversely, when not at an
     // interactive shell, trying to create this `Terminal` will cause an error. So they start as
     // None, and will be created on-demand if necessary (no request definition file provided, or
     // unbound variables exist).
-    // TODO: also check if the current shell is interactive. If not, interactive mode cannot be
-    // used at all
     let mut keys: Option<Keys<AsyncReader>> = None;
     let mut terminal: Option<Terminal<TermionBackend<AlternateScreen<RawTerminal<Stdout>>>>> = None;
 
     // If the user specified a request definition file, just use that; otherwise, enter interactive
     // mode to allow them to choose a request definition.
-    let result: Option<(RequestDefinition, Vec<KeyValue>)> = {
+    let result: anyhow::Result<Option<(RequestDefinition, Vec<KeyValue>)>> = {
         match args.file {
             Some(path) => {
                 let def: RequestDefinition =
@@ -76,22 +77,29 @@ fn run() -> anyhow::Result<()> {
 
                 let vars: Vec<KeyValue> = environment.map_or(vec![], |e| e.variables);
 
-                Some((def, vars))
+                Ok(Some((def, vars)))
             }
             None => {
-                // `terminal` and `keys` must be None at this point, so just create them
-                terminal = Some(get_terminal()?);
-                keys = Some(termion::async_stdin().keys());
-                let interactive_result = interactive::interactive_mode(
-                    &config,
-                    args.environment.as_deref(),
-                    &mut keys.as_mut().unwrap(),
-                    &mut terminal.as_mut().unwrap(),
-                )?;
-                interactive_result.map(|(def, env)| (def, env.map_or(vec![], |e| e.variables)))
+                if is_tty {
+                    // `terminal` and `keys` must be None at this point, so just create them
+                    terminal = Some(get_terminal()?);
+                    keys = Some(termion::async_stdin().keys());
+                    let interactive_result = interactive::interactive_mode(
+                        &config,
+                        args.environment.as_deref(),
+                        &mut keys.as_mut().unwrap(),
+                        &mut terminal.as_mut().unwrap(),
+                    )?;
+                    Ok(interactive_result
+                        .map(|(def, env)| (def, env.map_or(vec![], |e| e.variables))))
+                } else {
+                    Err(anyhow!("Running in interactive mode requires a TTY"))
+                }
             }
         }
     };
+
+    let result = result?;
 
     // TODO: add in variables specified via args
 
@@ -104,24 +112,30 @@ fn run() -> anyhow::Result<()> {
         // // If any unbound variables remain, prompt the user to enter them interactively
         let unbound_variables = templating::list_unbound_variables(&request_definition);
 
-        let additional_vars: Option<Vec<KeyValue>> = {
+        let additional_vars: anyhow::Result<Option<Vec<KeyValue>>> = {
             if !unbound_variables.is_empty() {
-                // `terminal` and `keys` could have been initialized above, so only initialize them
-                // here if necessary.
-                if keys.is_none() {
-                    terminal = Some(get_terminal()?);
-                    keys = Some(termion::async_stdin().keys());
+                if is_tty {
+                    // `terminal` and `keys` could have been initialized above, so only initialize them
+                    // here if necessary.
+                    if keys.is_none() {
+                        terminal = Some(get_terminal()?);
+                        keys = Some(termion::async_stdin().keys());
+                    }
+                    interactive::prompt_for_variables(
+                        &config,
+                        unbound_variables,
+                        &mut keys.as_mut().unwrap(),
+                        &mut terminal.as_mut().unwrap(),
+                    )
+                } else {
+                    Err(anyhow!("Running in interactive mode requires a TTY"))
                 }
-                interactive::prompt_for_variables(
-                    &config,
-                    unbound_variables,
-                    &mut keys.as_mut().unwrap(),
-                    &mut terminal.as_mut().unwrap(),
-                )?
             } else {
-                Some(vec![])
+                Ok(Some(vec![]))
             }
         };
+
+        let additional_vars = additional_vars?;
 
         // Switch back to the original screen
         drop(terminal);

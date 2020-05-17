@@ -1,6 +1,7 @@
 use anyhow;
 use assert_cmd::Command;
 use httptest::{matchers::*, responders::*, Expectation, Server};
+use predicates::prelude::*;
 use std::io::Write;
 use tempfile::NamedTempFile;
 
@@ -372,4 +373,43 @@ fn test_templating_urlencoded() -> anyhow::Result<()> {
     );
 
     run(fixture)
+}
+
+#[test]
+fn test_not_a_tty_1() -> anyhow::Result<()> {
+    let mut cmd = Command::cargo_bin("main").unwrap();
+    let assert = cmd.assert();
+
+    // No request definition file was provided, so the program will try to enter interactive mode,
+    // but the test is not running in a TTY, so it should fail with the appropriate message.
+    assert.failure().stderr(predicate::eq(
+        "Running in interactive mode requires a TTY\n",
+    ));
+
+    Ok(())
+}
+
+#[test]
+fn test_not_a_tty_2() -> anyhow::Result<()> {
+    let fixture = setup(
+        r#"
+    [request]
+    method = "GET"
+    url = "__base_url__/{unbound}"
+    "#,
+        None,
+    )?;
+
+    let mut cmd = Command::cargo_bin("main").unwrap();
+    cmd.arg("--file");
+    cmd.arg(fixture.def_file.path());
+    let assert = cmd.assert();
+
+    // Unbound variables exist, so the program will try to enter interactive mode, but the test is
+    // not running in a TTY, so it should fail with the appropriate message.
+    assert.failure().stderr(predicate::eq(
+        "Running in interactive mode requires a TTY\n",
+    ));
+
+    Ok(())
 }
