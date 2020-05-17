@@ -9,6 +9,7 @@ use rhc::interactive;
 use rhc::keyvalue::KeyValue;
 use rhc::request_definition::RequestDefinition;
 use rhc::templating;
+use serde_json::{to_string_pretty, Value};
 use spinners::{Spinner, Spinners};
 use std::borrow::Cow;
 use std::io::{Stdout, Write};
@@ -177,13 +178,22 @@ fn run() -> anyhow::Result<()> {
                 })
                 .unwrap_or(false);
 
-            let body = res.text()?;
-
             if is_json {
+                // If the content-type header on the response suggests that the response is JSON,
+                // try to parse it as a generic Value, then pretty-print it with highlighting via
+                // syntect. If the parsing fails, give up on the pretty-printing and just print the
+                // raw text response (still with JSON highlighting, if possible)
+                let body: Value = res.json()?;
+                let body = to_string_pretty(&body).unwrap_or_else(|_| body.to_string());
+
                 let ps = SyntaxSet::load_defaults_newlines();
                 let syntax = ps.find_syntax_by_extension("json").unwrap();
                 let ts = ThemeSet::load_defaults();
 
+                // If the user has specified no theme in their config file, fall back to a default
+                // included in syntect. If they specify a name of a default syntect theme, use
+                // that. Otherwise, treat their provided value as a file path and try to load a
+                // theme.
                 let theme: Result<Cow<Theme>, LoadingError> = match config.theme.as_ref() {
                     None => Ok(Cow::Borrowed(&ts.themes["base16-eighties.dark"])),
                     Some(theme_file) => ts
@@ -205,6 +215,7 @@ fn run() -> anyhow::Result<()> {
                             let escaped = as_24_bit_terminal_escaped(&ranges[..], false);
                             print!("{}", escaped);
                         }
+                        println!("");
                     }
                     Err(e) => {
                         eprintln!(
@@ -217,6 +228,7 @@ fn run() -> anyhow::Result<()> {
                     }
                 }
             } else {
+                let body = res.text()?;
                 println!("{}", body);
             }
         }
