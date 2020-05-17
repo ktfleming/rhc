@@ -149,10 +149,13 @@ fn run() -> anyhow::Result<()> {
             // Do the final substition with the user-provided variables
             templating::substitute_all(&mut request_definition, &additional_vars);
 
-            let sp = Spinner::new(Spinners::Dots, "Sending request...".into());
+            let mut sp: Option<Spinner> = None;
+            if is_tty {
+                sp = Some(Spinner::new(Spinners::Dots, "Sending request...".into()));
+            }
 
             let res = http::send_request(request_definition).context("Failed sending request")?;
-            sp.stop();
+            sp.map(|s| s.stop());
             println!("\n");
             println!("{}\n", res.status());
             let headers = res.headers();

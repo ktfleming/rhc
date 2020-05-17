@@ -1,4 +1,5 @@
 use anyhow;
+use assert_cmd::assert::Assert;
 use assert_cmd::Command;
 use httptest::{matchers::*, responders::*, Expectation, Server};
 use predicates::prelude::*;
@@ -39,7 +40,7 @@ fn setup(content: &str, env_content: Option<&str>) -> anyhow::Result<TestFixture
     })
 }
 
-fn run(fixture: TestFixture) -> anyhow::Result<()> {
+fn run(fixture: TestFixture) -> Assert {
     let mut cmd = Command::cargo_bin("main").unwrap();
 
     // If we don't borrow the env_file here, it will get dropped (deleted) after this block, and
@@ -55,9 +56,8 @@ fn run(fixture: TestFixture) -> anyhow::Result<()> {
     let assert = cmd.assert();
     // let output = assert.get_output();
     // println!("{:?}", output);
-    assert.success();
 
-    Ok(())
+    assert
 }
 
 #[test]
@@ -75,7 +75,8 @@ fn test_basic_get() -> anyhow::Result<()> {
         Expectation::matching(request::method_path("GET", "/foo")).respond_with(status_code(200)),
     );
 
-    run(fixture)
+    run(fixture).success();
+    Ok(())
 }
 
 #[test]
@@ -104,7 +105,8 @@ fn test_query_params() -> anyhow::Result<()> {
         .respond_with(status_code(200)),
     );
 
-    run(fixture)
+    run(fixture).success();
+    Ok(())
 }
 
 #[test]
@@ -122,7 +124,8 @@ fn test_basic_post() -> anyhow::Result<()> {
         Expectation::matching(request::method_path("POST", "/foo")).respond_with(status_code(200)),
     );
 
-    run(fixture)
+    run(fixture).success();
+    Ok(())
 }
 
 #[test]
@@ -165,7 +168,8 @@ fn test_post_json() -> anyhow::Result<()> {
         .respond_with(status_code(200)),
     );
 
-    run(fixture)
+    run(fixture).success();
+    Ok(())
 }
 
 #[test]
@@ -191,7 +195,8 @@ fn test_post_text() -> anyhow::Result<()> {
         .respond_with(status_code(200)),
     );
 
-    run(fixture)
+    run(fixture).success();
+    Ok(())
 }
 
 #[test]
@@ -221,7 +226,8 @@ fn test_post_urlencoded() -> anyhow::Result<()> {
         .respond_with(status_code(200)),
     );
 
-    run(fixture)
+    run(fixture).success();
+    Ok(())
 }
 
 #[test]
@@ -250,7 +256,8 @@ fn test_headers() -> anyhow::Result<()> {
         .respond_with(status_code(200)),
     );
 
-    run(fixture)
+    run(fixture).success();
+    Ok(())
 }
 
 #[test]
@@ -304,7 +311,8 @@ fn test_templating_json() -> anyhow::Result<()> {
         .respond_with(status_code(200)),
     );
 
-    run(fixture)
+    run(fixture).success();
+    Ok(())
 }
 
 #[test]
@@ -337,7 +345,8 @@ fn test_templating_string() -> anyhow::Result<()> {
         .respond_with(status_code(200)),
     );
 
-    run(fixture)
+    run(fixture).success();
+    Ok(())
 }
 
 #[test]
@@ -372,7 +381,8 @@ fn test_templating_urlencoded() -> anyhow::Result<()> {
         .respond_with(status_code(200)),
     );
 
-    run(fixture)
+    run(fixture).success();
+    Ok(())
 }
 
 #[test]
@@ -400,16 +410,37 @@ fn test_not_a_tty_2() -> anyhow::Result<()> {
         None,
     )?;
 
-    let mut cmd = Command::cargo_bin("main").unwrap();
-    cmd.arg("--file");
-    cmd.arg(fixture.def_file.path());
-    let assert = cmd.assert();
+    // let mut cmd = Command::cargo_bin("main").unwrap();
+    // cmd.arg("--file");
+    // cmd.arg(fixture.def_file.path());
+    // let assert = cmd.assert();
 
     // Unbound variables exist, so the program will try to enter interactive mode, but the test is
     // not running in a TTY, so it should fail with the appropriate message.
-    assert.failure().stderr(predicate::eq(
+    run(fixture).failure().stderr(predicate::eq(
         "Running in interactive mode requires a TTY\n",
     ));
 
+    Ok(())
+}
+
+#[test]
+fn test_no_spinner_when_no_tty() -> anyhow::Result<()> {
+    let fixture = setup(
+        r#"
+    [request]
+    method = "GET"
+    url = "__base_url__/foo"
+    "#,
+        None,
+    )?;
+
+    fixture.server.expect(
+        Expectation::matching(request::method_path("GET", "/foo")).respond_with(status_code(200)),
+    );
+
+    run(fixture)
+        .success()
+        .stdout(predicate::str::contains("Sending request").not());
     Ok(())
 }
