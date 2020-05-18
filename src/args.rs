@@ -9,4 +9,7 @@ pub struct Args {
 
     #[structopt(short, long, parse(from_os_str))]
     pub environment: Option<PathBuf>,
+
+    #[structopt(short, long)]
+    pub verbose: bool,
 }

@@ -158,15 +158,18 @@ fn run() -> anyhow::Result<()> {
             let res = http::send_request(request_definition, &config)
                 .context("Failed sending request")?;
             sp.map(|s| s.stop());
-            println!("\n");
-            println!("{}\n", res.status());
-            let headers = res.headers();
-            for (name, value) in headers {
-                let value = value.to_str()?;
-                println!("{}: {}", name.as_str(), value);
-            }
 
-            println!("\n");
+            let headers = res.headers();
+
+            if args.verbose {
+                println!("\n{}\n", res.status());
+                for (name, value) in headers {
+                    let value = value.to_str()?;
+                    println!("{}: {}", name.as_str(), value);
+                }
+
+                println!("");
+            }
 
             let is_json = headers
                 .get("content-type")
