@@ -102,10 +102,20 @@ fn run() -> anyhow::Result<()> {
 
     let result = result?;
 
-    // TODO: add in variables specified via args
-
     // `interactive_mode` will return None if they Ctrl-C out without selecting anything.
-    if let Some((mut request_definition, vars)) = result {
+    if let Some((mut request_definition, mut vars)) = result {
+        vars.sort();
+        if let Some(bindings) = args.binding {
+            for binding in bindings {
+                match vars.binary_search_by(|item| item.name.cmp(&binding.name)) {
+                    Ok(index) => {
+                        vars.remove(index);
+                        vars.insert(index, binding);
+                    }
+                    Err(index) => vars.insert(index, binding),
+                };
+            }
+        }
         // Substitute the variables that we have at this point into all the places of the
         // RequestDefinitions that they can be used (URL, headers, body, query string)
         templating::substitute_all(&mut request_definition, &vars);

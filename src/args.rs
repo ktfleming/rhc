@@ -1,3 +1,4 @@
+use crate::keyvalue::KeyValue;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -12,4 +13,7 @@ pub struct Args {
 
     #[structopt(short, long)]
     pub verbose: bool,
+
+    #[structopt(short, long)]
+    pub binding: Option<Vec<KeyValue>>,
 }

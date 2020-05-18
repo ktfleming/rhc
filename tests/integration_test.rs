@@ -444,3 +444,74 @@ fn test_no_spinner_when_no_tty() -> anyhow::Result<()> {
         .stdout(predicate::str::contains("Sending request").not());
     Ok(())
 }
+
+#[test]
+fn test_bindings_simple() -> anyhow::Result<()> {
+    let fixture = setup(
+        r#"
+    [request]
+    method = "GET"
+    url = "__base_url__/{var1}"
+    "#,
+        None,
+    )?;
+
+    fixture.server.expect(
+        Expectation::matching(request::method_path("GET", "/bar")).respond_with(status_code(200)),
+    );
+
+    let mut cmd = Command::cargo_bin("main").unwrap();
+
+    cmd.arg("--file");
+    cmd.arg(fixture.def_file.path());
+
+    cmd.arg("--binding");
+    cmd.arg("var1=bar");
+
+    cmd.assert().success();
+    Ok(())
+}
+
+#[test]
+fn test_bindings_overwrite() -> anyhow::Result<()> {
+    let fixture = setup(
+        r#"
+    [request]
+    method = "GET"
+    url = "__base_url__/{var1}/{something}/{var3}"
+    "#,
+        Some(
+            r#"
+        name = "test_env"
+        variables = [
+          { name = "var1", value = "original" },
+          { name = "something", value = "a_value" },
+        ]
+    "#,
+        ),
+    )?;
+
+    fixture.server.expect(
+        Expectation::matching(request::method_path("GET", "/new/a_value/aaa"))
+            .respond_with(status_code(200)),
+    );
+
+    let mut cmd = Command::cargo_bin("main").unwrap();
+
+    cmd.arg("--file");
+    cmd.arg(fixture.def_file.path());
+
+    if let Some(env_file) = &fixture.env_file {
+        cmd.arg("--environment");
+        cmd.arg(env_file.path());
+    }
+
+    cmd.arg("--binding");
+    cmd.arg("var1=new");
+
+    cmd.arg("--binding");
+    cmd.arg("var3=aaa");
+
+    cmd.assert().success();
+    Ok(())
+}
