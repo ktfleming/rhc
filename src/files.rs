@@ -46,9 +46,17 @@ pub fn list_all_choices(config: &Config) -> Vec<Choice> {
     choices
 }
 
+/// Try to load all environments from TOML files under the base environments directory. If any are
+/// invalid, display a message on stderr and don't allow them to be used.
 pub fn list_all_environments(config: &Config) -> Vec<(Environment, PathBuf)> {
     get_all_toml_files(&config.environment_directory)
         .into_iter()
-        .filter_map(|path| Environment::new(&path).ok().map(|env| (env, path)))
+        .filter_map(|path| match Environment::new(&path) {
+            Ok(env) => Some((env, path)),
+            Err(err) => {
+                eprintln!("{}", err);
+                None
+            }
+        })
         .collect()
 }

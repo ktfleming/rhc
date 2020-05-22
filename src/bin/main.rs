@@ -167,7 +167,9 @@ fn run() -> anyhow::Result<()> {
 
             let res = http::send_request(request_definition, &config)
                 .context("Failed sending request")?;
-            sp.map(|s| s.stop());
+            if let Some(s) = sp {
+                s.stop();
+            }
 
             let headers = res.headers();
 
@@ -178,7 +180,7 @@ fn run() -> anyhow::Result<()> {
                     println!("{}: {}", name.as_str(), value);
                 }
 
-                println!("");
+                println!();
             }
 
             let is_json = headers
@@ -229,7 +231,7 @@ fn run() -> anyhow::Result<()> {
                             let escaped = as_24_bit_terminal_escaped(&ranges[..], false);
                             print!("{}", escaped);
                         }
-                        println!("");
+                        println!();
                     }
                     Err(e) => {
                         eprintln!(

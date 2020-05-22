@@ -515,3 +515,29 @@ fn test_bindings_overwrite() -> anyhow::Result<()> {
     cmd.assert().success();
     Ok(())
 }
+
+#[test]
+fn test_duplicate_vars_in_env() -> anyhow::Result<()> {
+    let fixture = setup(
+        r#"
+    [request]
+    method = "GET"
+    url = "__base_url__/foo"
+    "#,
+        Some(
+            r#"
+        name = "test_env"
+        variables = [
+          { name = "var1", value = "original" },
+          { name = "var1", value = "duplicate" },
+        ]
+    "#,
+        ),
+    )?;
+
+    let assert = run(fixture);
+    assert.failure().stderr(predicate::str::contains(
+        "contains duplicate bindings for: var1",
+    ));
+    Ok(())
+}

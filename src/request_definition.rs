@@ -51,10 +51,7 @@ pub struct Query {
 #[serde(tag = "type", content = "content")]
 pub enum Content {
     Text(String),
-
-    // #[serde(with = "serde_with::json::nested")]
     Json(String),
-
     UrlEncoded(Vec<KeyValue>),
 }
 
