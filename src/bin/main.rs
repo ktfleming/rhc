@@ -171,12 +171,13 @@ fn run() -> anyhow::Result<()> {
                 .context("Failed sending request")?;
             if let Some(s) = sp {
                 s.stop();
+                println!("\n");
             }
 
             let headers = res.headers();
 
-            if args.verbose {
-                println!("\n{}\n", res.status());
+            if !args.only_body {
+                println!("{}\n", res.status());
                 for (name, value) in headers {
                     let value = value.to_str()?;
                     println!("{}: {}", name.as_str(), value);
