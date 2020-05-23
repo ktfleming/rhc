@@ -32,7 +32,9 @@ fn main() {
         // If an error was raised during an interactive mode call while the alternate screen is in
         // use, we have to flush stdout here or the user will not see the error message.
         std::io::stdout().flush().unwrap();
-        eprintln!("{:#}", e);
+
+        // Seems like this initial newline is necessary or the error will be printed with an offset
+        eprintln!("\nError: {:#}", e);
         std::process::exit(1);
     }
 }
@@ -235,10 +237,10 @@ fn run() -> anyhow::Result<()> {
                     }
                     Err(e) => {
                         eprintln!(
-                            "Could not load theme at {}, continuing with no theme",
-                            &config.theme.unwrap()
+                            "Error: Could not load theme at {}: {}, continuing with no theme",
+                            &config.theme.unwrap(),
+                            e
                         );
-                        eprintln!("{}", e);
 
                         println!("{}", body);
                     }

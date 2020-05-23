@@ -54,7 +54,7 @@ pub fn list_all_environments(config: &Config) -> Vec<(Environment, PathBuf)> {
         .filter_map(|path| match Environment::new(&path) {
             Ok(env) => Some((env, path)),
             Err(err) => {
-                eprintln!("{}", err);
+                eprintln!("Error: {}", err);
                 None
             }
         })

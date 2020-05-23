@@ -392,7 +392,7 @@ fn test_not_a_tty_1() -> anyhow::Result<()> {
 
     // No request definition file was provided, so the program will try to enter interactive mode,
     // but the test is not running in a TTY, so it should fail with the appropriate message.
-    assert.failure().stderr(predicate::eq(
+    assert.failure().stderr(predicate::str::contains(
         "Running in interactive mode requires a TTY\n",
     ));
 
@@ -410,14 +410,9 @@ fn test_not_a_tty_2() -> anyhow::Result<()> {
         None,
     )?;
 
-    // let mut cmd = Command::cargo_bin("main").unwrap();
-    // cmd.arg("--file");
-    // cmd.arg(fixture.def_file.path());
-    // let assert = cmd.assert();
-
     // Unbound variables exist, so the program will try to enter interactive mode, but the test is
     // not running in a TTY, so it should fail with the appropriate message.
-    run(fixture).failure().stderr(predicate::eq(
+    run(fixture).failure().stderr(predicate::str::contains(
         "Running in interactive mode requires a TTY\n",
     ));
 
