@@ -6,6 +6,7 @@ use rhc::environment::Environment;
 use rhc::files::load_file;
 use rhc::http;
 use rhc::interactive;
+use rhc::interactive::SelectedValues;
 use rhc::keyvalue::KeyValue;
 use rhc::request_definition::RequestDefinition;
 use rhc::templating;
@@ -14,6 +15,7 @@ use spinners::{Spinner, Spinners};
 use std::borrow::Cow;
 use std::io::{Stdout, Write};
 use std::path::Path;
+use std::path::PathBuf;
 use structopt::StructOpt;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{Style, Theme, ThemeSet};
@@ -67,20 +69,26 @@ fn run() -> anyhow::Result<()> {
     let mut terminal: Option<Terminal<TermionBackend<AlternateScreen<RawTerminal<Stdout>>>>> = None;
 
     // If the user specified a request definition file, just use that; otherwise, enter interactive
-    // mode to allow them to choose a request definition.
-    let result: anyhow::Result<Option<(RequestDefinition, Vec<KeyValue>)>> = {
-        match args.file {
+    // mode to allow them to choose a request definition. In either case, we need to keep track of
+    // the file names for the request definition that's either provided or selected, as well as the
+    // environment being used (if any), as these are required for the prompt_for_variables
+    // function.
+
+    let result: anyhow::Result<Option<SelectedValues>> = {
+        match &args.file {
             Some(path) => {
                 let def: RequestDefinition =
                     load_file(&path, RequestDefinition::new, "request definition")?;
-                let environment: Option<Environment> = args
-                    .environment
+                let env_path: Option<PathBuf> = args.environment;
+                let environment: Option<Environment> = env_path
+                    .as_deref()
                     .map(|path| load_file(&path, Environment::new, "environment"))
                     .transpose()?;
 
-                let vars: Vec<KeyValue> = environment.map_or(vec![], |e| e.variables);
-
-                Ok(Some((def, vars)))
+                Ok(Some(SelectedValues {
+                    def: (def, path.to_owned()),
+                    env: environment.map(|e| (e, env_path.unwrap())),
+                }))
             }
             None => {
                 if is_tty {
@@ -93,8 +101,8 @@ fn run() -> anyhow::Result<()> {
                         &mut keys.as_mut().unwrap(),
                         &mut terminal.as_mut().unwrap(),
                     )?;
-                    Ok(interactive_result
-                        .map(|(def, env)| (def, env.map_or(vec![], |e| e.variables))))
+
+                    Ok(interactive_result)
                 } else {
                     Err(anyhow!("Running in interactive mode requires a TTY"))
                 }
@@ -105,7 +113,19 @@ fn run() -> anyhow::Result<()> {
     let result = result?;
 
     // `interactive_mode` will return None if they Ctrl-C out without selecting anything.
-    if let Some((mut request_definition, mut vars)) = result {
+    // if let Some((mut request_definition, mut vars)) = result {
+    if let Some(SelectedValues {
+        def: (mut request_definition, request_definition_path),
+        env,
+    }) = result
+    {
+        // Split up the variables and env_path immediately to avoid difficulties with borrowing
+        // `env` later on
+        let (mut vars, env_path): (Vec<KeyValue>, Option<PathBuf>) = env
+            .map_or((vec![], None), |(env, env_path)| {
+                (env.variables, Some(env_path))
+            });
+
         vars.sort();
         if let Some(bindings) = args.binding {
             for binding in bindings {
@@ -118,6 +138,7 @@ fn run() -> anyhow::Result<()> {
                 };
             }
         }
+
         // Substitute the variables that we have at this point into all the places of the
         // RequestDefinitions that they can be used (URL, headers, body, query string)
         templating::substitute_all(&mut request_definition, &vars);
@@ -137,6 +158,8 @@ fn run() -> anyhow::Result<()> {
                     interactive::prompt_for_variables(
                         &config,
                         unbound_variables,
+                        &request_definition_path,
+                        env_path.as_deref(),
                         &mut keys.as_mut().unwrap(),
                         &mut terminal.as_mut().unwrap(),
                     )
@@ -176,7 +199,7 @@ fn run() -> anyhow::Result<()> {
 
             let headers = res.headers();
 
-            if !args.only_body {
+            if !(&args.only_body) {
                 println!("{}\n", res.status());
                 for (name, value) in headers {
                     let value = value.to_str()?;

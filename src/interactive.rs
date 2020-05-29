@@ -4,6 +4,7 @@ use crate::environment::Environment;
 use crate::files;
 use crate::keyvalue::KeyValue;
 use crate::request_definition::RequestDefinition;
+use std::borrow::Cow;
 use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::io::{BufRead, BufReader};
@@ -70,12 +71,20 @@ impl InteractiveState {
     }
 }
 
+pub struct SelectedValues {
+    /// The RequestDefinition and its file name
+    pub def: (RequestDefinition, PathBuf),
+
+    /// The Environment and its file name, if one was selected
+    pub env: Option<(Environment, PathBuf)>,
+}
+
 pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Write>(
     config: &Config,
     env_path: Option<&Path>,
     stdin: &mut Keys<R>,
     terminal: &mut Terminal<B>,
-) -> anyhow::Result<Option<(RequestDefinition, Option<Environment>)>> {
+) -> anyhow::Result<Option<SelectedValues>> {
     // This Vec<Choice> serves as the source-of-truth that will be filtered on and eventually
     // selected from. Initially only Paths are populated in the Choice structs, and the associated
     // RequestDefinition is not present.  The main UI loop accesses it through the read mode of the
@@ -112,7 +121,7 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
     let prompt_style = Style::default().fg(Color::Blue);
 
     // Load all the environments available
-    let environments: Vec<(Environment, PathBuf)> = files::list_all_environments(&config);
+    let mut environments: Vec<(Environment, PathBuf)> = files::list_all_environments(&config);
 
     // If the user started with the --environment flag, find the matching environment, if there is
     // one, and set that as the selected environment.
@@ -123,8 +132,6 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
             }
         }
     }
-
-    let mut environments: Vec<Environment> = environments.into_iter().map(|(env, _)| env).collect();
 
     loop {
         // Needed to prevent cursor flicker when navigating the list
@@ -138,9 +145,9 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
         let active_env = app_state
             .active_env_index
             .map(|i| environments.get(i).unwrap());
-        let active_vars = active_env.map(|e| &e.variables);
+        let active_vars = active_env.map(|(e, _)| &e.variables);
         let prompt = match active_env {
-            Some(env) => format!("{} > ", env.name),
+            Some((env, _)) => format!("{} > ", env.name),
             None => "> ".to_string(),
         };
 
@@ -308,9 +315,12 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
         Some(path) => {
             let def: RequestDefinition =
                 files::load_file(&path, RequestDefinition::new, "request definition")?;
-            let env: Option<Environment> =
+            let env: Option<(Environment, PathBuf)> =
                 app_state.active_env_index.map(|i| environments.remove(i));
-            Some((def, env))
+            Some(SelectedValues {
+                def: (def, path.to_owned()),
+                env,
+            })
         }
     };
 
@@ -343,6 +353,8 @@ impl PromptState {
 pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io::Write>(
     config: &Config,
     names: Vec<&str>,
+    def_path: &Path,
+    env_path: Option<&Path>,
     stdin: &mut Keys<R>,
     terminal: &mut Terminal<B>,
 ) -> anyhow::Result<Option<Vec<KeyValue>>> {
@@ -369,9 +381,35 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
         .create(true)
         .open(history_location.as_ref())?;
 
+    #[derive(Eq, PartialEq)]
+    struct HistoryItem<'a> {
+        value: Cow<'a, str>,
+        def_path: Cow<'a, str>,
+        env_path: Cow<'a, str>,
+    }
+
     // Clone the file handle since we need to read from it here, and append to it in the loop
     let history_reader = BufReader::new(history_file.try_clone()?);
-    let full_history: Vec<String> = history_reader.lines().filter_map(|l| l.ok()).collect();
+
+    let full_history: Vec<HistoryItem> = history_reader
+        .lines()
+        .filter_map(|l| {
+            if let Some(l) = l.ok() {
+                let split: Vec<&str> = l.split("|||").collect();
+                if let [value, def_path, env_path] = split.as_slice() {
+                    Some(HistoryItem {
+                        value: Cow::Owned(value.to_string()),
+                        def_path: Cow::Owned(def_path.to_string()),
+                        env_path: Cow::Owned(env_path.to_string()),
+                    })
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect();
 
     let (default_style, highlight_style) = get_list_styles();
 
@@ -380,20 +418,31 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
     loop {
         io::stdout().flush().ok();
 
+        // First, filter to just the history items that were used for this request definition and
+        // environment
+        let mut filtered_history_items: Vec<&HistoryItem> = full_history
+            .iter()
+            .filter(|item| {
+                item.def_path == files::last_component(def_path)
+                    && item.env_path
+                        == env_path
+                            .map(files::last_component)
+                            .unwrap_or("<none>".to_string())
+            })
+            .collect();
+
         // Fuzzy matching is basically the same as for choosing a request definition
-        let filtered_history_items: Vec<&String> = if state.query.is_empty() {
-            full_history.iter().collect()
-        } else {
-            let mut matching_items: Vec<(isize, &String)> = full_history
+        if !state.query.is_empty() {
+            let mut matching_items: Vec<(isize, &HistoryItem)> = filtered_history_items
                 .iter()
                 .filter_map(|item| {
-                    best_match(&state.query, item).map(|result| (result.score(), item))
+                    best_match(&state.query, &item.value).map(|result| (result.score(), *item))
                 })
                 .collect();
 
             matching_items.sort_unstable_by(|(score1, _), (score2, _)| score2.cmp(score1));
 
-            matching_items.iter().map(|(_, item)| *item).collect()
+            filtered_history_items = matching_items.iter().map(|(_, item)| *item).collect();
         };
 
         state.list_state.select(state.active_history_item_index);
@@ -402,9 +451,9 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
         let in_history_mode = state.active_history_item_index.is_some();
         let matching_history_items = filtered_history_items.iter().map(|item| {
             if in_history_mode {
-                Text::raw(*item)
+                Text::raw(format!("{}", item.value))
             } else {
-                Text::raw(format!("   {}", *item))
+                Text::raw(format!("   {}", item.value))
             }
         });
 
@@ -490,17 +539,32 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
                 }
                 Key::Char('\n') => {
                     if let Some(index) = state.active_history_item_index {
-                        let answer =
-                            KeyValue::new(names[current_name_index], filtered_history_items[index]);
+                        let answer = KeyValue::new(
+                            names[current_name_index],
+                            &filtered_history_items[index].value,
+                        );
                         result.push(answer);
                     } else if !&state.query.is_empty() {
                         // Assume that an empty string answer is never what they want
                         let answer = KeyValue::new(names[current_name_index], &state.query);
 
-                        // Write the provided answer to the history file, if it was not already
-                        // present
-                        if !full_history.contains(&answer.value) {
-                            writeln!(history_file, "{}", &answer.value)?;
+                        let short_def_path = files::last_component(def_path);
+                        let short_env_path = env_path
+                            .map(files::last_component)
+                            .unwrap_or("<none>".to_string());
+                        let full_answer = format!(
+                            "{}|||{}|||{}",
+                            &answer.value, short_def_path, short_env_path
+                        );
+
+                        let new_item = HistoryItem {
+                            value: Cow::Borrowed(&answer.value),
+                            def_path: Cow::Owned(short_def_path),
+                            env_path: Cow::Owned(short_env_path),
+                        };
+
+                        if !full_history.contains(&new_item) {
+                            writeln!(history_file, "{}", &full_answer)?;
                         }
 
                         result.push(answer);
