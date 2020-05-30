@@ -25,4 +25,7 @@ pub struct Args {
         help = "Bindings to use when constructing the request. Example: -b key=value"
     )]
     pub binding: Option<Vec<KeyValue>>,
+
+    #[structopt(short, long, help = "The config file to use")]
+    pub config: Option<PathBuf>,
 }

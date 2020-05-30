@@ -22,3 +22,18 @@ impl Config {
         Ok(config)
     }
 }
+
+impl Default for Config {
+    fn default() -> Config {
+        Config {
+            request_definition_directory: "~/rhc/definitions".to_string(),
+            environment_directory: "~/rhc/environments".to_string(),
+            history_file: "~/.rhc_history".to_string(),
+            theme: None,
+            connect_timeout_seconds: None,
+            read_timeout_seconds: None,
+            timeout_seconds: None,
+            max_history_items: None,
+        }
+    }
+}

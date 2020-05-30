@@ -6,6 +6,11 @@ use predicates::prelude::*;
 use std::io::Write;
 use tempfile::NamedTempFile;
 
+// Note: the integration tests don't currently specify a --config arg, which means that they will
+// use the file at ~/.config/rhc/config.toml if it's present, or the default Config if not.  None
+// of the tests currently should be affected by anything in the Config, so this isn't an issue
+// right now (notable, the interactive mode doesn't have tests). If that changes, I'll have to
+// modify the tests to write a temporary config file and then specify that with the --config arg.
 #[test]
 fn test_help() {
     let mut cmd = Command::cargo_bin("main").unwrap();

@@ -20,7 +20,7 @@ where
     })
 }
 
-fn get_all_toml_files(dir: &str) -> Vec<PathBuf> {
+pub fn get_all_toml_files(dir: &str) -> Vec<PathBuf> {
     let def_directory = shellexpand::tilde(dir);
     WalkDir::new(Path::new(def_directory.as_ref()))
         .into_iter()

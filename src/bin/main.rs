@@ -3,7 +3,7 @@ use atty::Stream;
 use rhc::args::Args;
 use rhc::config::Config;
 use rhc::environment::Environment;
-use rhc::files::load_file;
+use rhc::files::{get_all_toml_files, load_file};
 use rhc::http;
 use rhc::interactive;
 use rhc::interactive::SelectedValues;
@@ -54,10 +54,32 @@ fn get_terminal() -> anyhow::Result<OurTerminal> {
 }
 
 fn run() -> anyhow::Result<()> {
-    let args = Args::from_args();
-    let config_location: Cow<str> = shellexpand::tilde("~/.config/rhc/config.toml");
-    let config =
-        Config::new(Path::new(config_location.as_ref())).context("Could not load config file")?;
+    let args: Args = Args::from_args();
+
+    args.config.as_ref().map_or(Ok(()), |c| {
+        if c.is_file() {
+            Ok(())
+        } else {
+            Err(anyhow!("No config file found at `{}`", c.to_string_lossy()))
+        }
+    })?;
+
+    let raw_config_location: PathBuf = args
+        .config
+        .unwrap_or_else(|| PathBuf::from("~/.config/rhc/config.toml"));
+    let raw_config_location = raw_config_location.to_string_lossy();
+    let config_location: Cow<str> = shellexpand::tilde(raw_config_location.as_ref());
+    let config_path = Path::new(config_location.as_ref());
+    let config = {
+        if config_path.is_file() {
+            Config::new(config_path).context(format!(
+                "Could not load config file at {}",
+                config_path.to_string_lossy()
+            ))?
+        } else {
+            Config::default()
+        }
+    };
 
     let is_tty = atty::is(Stream::Stdout);
 
@@ -89,17 +111,24 @@ fn run() -> anyhow::Result<()> {
             }
             None => {
                 if is_tty {
-                    // `terminal` and `keys` must be None at this point, so just create them
-                    terminal = Some(get_terminal()?);
-                    keys = Some(termion::async_stdin().keys());
-                    let interactive_result = interactive::interactive_mode(
-                        &config,
-                        args.environment.as_deref(),
-                        &mut keys.as_mut().unwrap(),
-                        &mut terminal.as_mut().unwrap(),
-                    )?;
+                    // If we have to enter interactive mode, check if there is at least one request
+                    // definition file available. If not, there's nothing that can be done, so
+                    // print a warning and exit.
+                    if get_all_toml_files(&config.request_definition_directory).is_empty() {
+                        Err(anyhow!("No TOML files found under {}. Running rhc in interactive mode requres at least one request definition file.", &config.request_definition_directory))
+                    } else {
+                        // `terminal` and `keys` must be None at this point, so just create them
+                        terminal = Some(get_terminal()?);
+                        keys = Some(termion::async_stdin().keys());
+                        let interactive_result = interactive::interactive_mode(
+                            &config,
+                            args.environment.as_deref(),
+                            &mut keys.as_mut().unwrap(),
+                            &mut terminal.as_mut().unwrap(),
+                        )?;
 
-                    Ok(interactive_result)
+                        Ok(interactive_result)
+                    }
                 } else {
                     Err(anyhow!("Running in interactive mode requires a TTY"))
                 }
