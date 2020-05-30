@@ -318,7 +318,7 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
             let env: Option<(Environment, PathBuf)> =
                 app_state.active_env_index.map(|i| environments.remove(i));
             Some(SelectedValues {
-                def: (def, path.to_owned()),
+                def: (def, path),
                 env,
             })
         }
@@ -344,6 +344,19 @@ impl PromptState {
             list_state: ListState::default(),
             active_history_item_index: None,
         }
+    }
+}
+
+#[derive(Eq, PartialEq)]
+struct HistoryItem<'a> {
+    value: Cow<'a, str>,
+    def_path: Cow<'a, str>,
+    env_path: Cow<'a, str>,
+}
+
+impl<'a> HistoryItem<'a> {
+    fn format(&self) -> String {
+        format!("{}|||{}|||{}", self.value, self.def_path, self.env_path)
     }
 }
 
@@ -381,26 +394,19 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
         .create(true)
         .open(history_location.as_ref())?;
 
-    #[derive(Eq, PartialEq)]
-    struct HistoryItem<'a> {
-        value: Cow<'a, str>,
-        def_path: Cow<'a, str>,
-        env_path: Cow<'a, str>,
-    }
-
     // Clone the file handle since we need to read from it here, and append to it in the loop
     let history_reader = BufReader::new(history_file.try_clone()?);
 
     let full_history: Vec<HistoryItem> = history_reader
         .lines()
         .filter_map(|l| {
-            if let Some(l) = l.ok() {
+            if let Ok(l) = l {
                 let split: Vec<&str> = l.split("|||").collect();
                 if let [value, def_path, env_path] = split.as_slice() {
                     Some(HistoryItem {
-                        value: Cow::Owned(value.to_string()),
-                        def_path: Cow::Owned(def_path.to_string()),
-                        env_path: Cow::Owned(env_path.to_string()),
+                        value: Cow::Owned((*value).to_string()),
+                        def_path: Cow::Owned((*def_path).to_string()),
+                        env_path: Cow::Owned((*env_path).to_string()),
                     })
                 } else {
                     None
@@ -410,6 +416,10 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
             }
         })
         .collect();
+
+    // The new HistoryItems, which don't already appear in full_history, that the user creates
+    // interactively
+    let mut created_items: Vec<HistoryItem> = vec![];
 
     let (default_style, highlight_style) = get_list_styles();
 
@@ -427,7 +437,7 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
                     && item.env_path
                         == env_path
                             .map(files::last_component)
-                            .unwrap_or("<none>".to_string())
+                            .unwrap_or_else(|| "<none>".to_string())
             })
             .collect();
 
@@ -551,20 +561,21 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
                         let short_def_path = files::last_component(def_path);
                         let short_env_path = env_path
                             .map(files::last_component)
-                            .unwrap_or("<none>".to_string());
-                        let full_answer = format!(
-                            "{}|||{}|||{}",
-                            &answer.value, short_def_path, short_env_path
-                        );
+                            .unwrap_or_else(|| "<none>".to_string());
 
                         let new_item = HistoryItem {
-                            value: Cow::Borrowed(&answer.value),
+                            value: Cow::Owned(answer.value.clone()),
                             def_path: Cow::Owned(short_def_path),
                             env_path: Cow::Owned(short_env_path),
                         };
 
                         if !full_history.contains(&new_item) {
-                            writeln!(history_file, "{}", &full_answer)?;
+                            writeln!(history_file, "{}", new_item.format())?;
+
+                            // Keep track of the new items so we can re-write the file at the end of
+                            // this function, which is necessary if the number of history items exceeds
+                            // the max_history_items setting in the user's Config
+                            created_items.push(new_item);
                         }
 
                         result.push(answer);
@@ -589,6 +600,23 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
                 Key::Char(c) => state.query.push(c),
                 _ => {}
             }
+        }
+    }
+
+    // If the total number of history items exceeds the max, rewrite the history file with just the
+    // tail of appropriate size
+    let mut all_history = full_history;
+    all_history.append(&mut created_items);
+    let excess_items = all_history.len() as u64 - config.max_history_items.unwrap_or(1000);
+    if excess_items > 0 {
+        drop(history_file);
+
+        let mut rewrite_file = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(history_location.as_ref())?;
+        for item in all_history.iter().skip(excess_items as usize) {
+            writeln!(rewrite_file, "{}", item.format())?;
         }
     }
 

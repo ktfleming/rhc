@@ -11,12 +11,13 @@ pub struct Config {
     pub connect_timeout_seconds: Option<u64>,
     pub read_timeout_seconds: Option<u64>,
     pub timeout_seconds: Option<u64>,
+    pub max_history_items: Option<u64>,
 }
 
 impl Config {
     pub fn new(path: &Path) -> anyhow::Result<Config> {
         let contents = fs::read_to_string(path)?;
-        let config = toml::from_str(&contents)?;
+        let config: Config = toml::from_str(&contents)?;
 
         Ok(config)
     }

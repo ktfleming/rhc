@@ -92,6 +92,7 @@ fn test_bad_files() {
             connect_timeout_seconds: None,
             read_timeout_seconds: None,
             timeout_seconds: None,
+            max_history_items: None,
         };
 
         let prepared = prepare_request(def.unwrap(), &empty_config);
