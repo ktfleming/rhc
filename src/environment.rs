@@ -29,7 +29,7 @@ impl Environment {
             .collect();
         if !dupes.is_empty() {
             Err(anyhow!(
-                "The specified environment file {} contains duplicate bindings for: {}",
+                "The environment file {} contains duplicate bindings for: {}",
                 path.to_string_lossy(),
                 dupes.join(", ")
             ))

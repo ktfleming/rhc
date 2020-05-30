@@ -13,6 +13,7 @@ use rhc::templating;
 use serde_json::{to_string_pretty, Value};
 use spinners::{Spinner, Spinners};
 use std::borrow::Cow;
+use std::env;
 use std::io::{Stdout, Write};
 use std::path::Path;
 use std::path::PathBuf;
@@ -56,6 +57,7 @@ fn get_terminal() -> anyhow::Result<OurTerminal> {
 fn run() -> anyhow::Result<()> {
     let args: Args = Args::from_args();
 
+    // If the user specifies a config location, make sure there's actually a file there
     args.config.as_ref().map_or(Ok(()), |c| {
         if c.is_file() {
             Ok(())
@@ -64,12 +66,28 @@ fn run() -> anyhow::Result<()> {
         }
     })?;
 
-    let raw_config_location: PathBuf = args
-        .config
-        .unwrap_or_else(|| PathBuf::from("~/.config/rhc/config.toml"));
+    // Load the config file using this priority:
+    // 1. The file specified with the --config arg, if present
+    // 2. $XDG_CONFIG_HOME/rhc/config.toml, if XDG_CONFIG_HOME is defined
+    // 3. ~/.config/rhc/config.toml, if present
+    // If none of the above exist, use the default Config.
+    let raw_config_location: PathBuf = args.config.unwrap_or_else(|| {
+        match env::var_os("XDG_CONFIG_HOME") {
+            Some(xdg_config_home) => PathBuf::from(xdg_config_home),
+            None => PathBuf::from("~/.config"),
+        }
+        .join("rhc")
+        .join("config.toml")
+    });
+
     let raw_config_location = raw_config_location.to_string_lossy();
     let config_location: Cow<str> = shellexpand::tilde(raw_config_location.as_ref());
     let config_path = Path::new(config_location.as_ref());
+
+    if args.verbose {
+        println!("Looking for config file at {}", config_path.display());
+    }
+
     let config = {
         if config_path.is_file() {
             Config::new(config_path).context(format!(
@@ -77,6 +95,10 @@ fn run() -> anyhow::Result<()> {
                 config_path.to_string_lossy()
             ))?
         } else {
+            println!(
+                "No config file found at {}, falling back to default config",
+                config_path.display()
+            );
             Config::default()
         }
     };

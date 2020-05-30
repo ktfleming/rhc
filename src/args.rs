@@ -28,4 +28,7 @@ pub struct Args {
 
     #[structopt(short, long, help = "The config file to use")]
     pub config: Option<PathBuf>,
+
+    #[structopt(short, long, help = "Print more detailed information")]
+    pub verbose: bool,
 }
