@@ -80,15 +80,12 @@ fn run() -> anyhow::Result<()> {
                 let def: RequestDefinition =
                     load_file(&path, RequestDefinition::new, "request definition")?;
                 let env_path: Option<PathBuf> = args.environment;
-                let environment: Option<Environment> = env_path
+                let env: Option<Environment> = env_path
                     .as_deref()
                     .map(|path| load_file(&path, Environment::new, "environment"))
                     .transpose()?;
 
-                Ok(Some(SelectedValues {
-                    def: (def, path.to_owned()),
-                    env: environment.map(|e| (e, env_path.unwrap())),
-                }))
+                Ok(Some(SelectedValues { def, env }))
             }
             None => {
                 if is_tty {
@@ -114,17 +111,11 @@ fn run() -> anyhow::Result<()> {
 
     // `interactive_mode` will return None if they Ctrl-C out without selecting anything.
     // if let Some((mut request_definition, mut vars)) = result {
-    if let Some(SelectedValues {
-        def: (mut request_definition, request_definition_path),
-        env,
-    }) = result
-    {
-        // Split up the variables and env_path immediately to avoid difficulties with borrowing
+    if let Some(SelectedValues { mut def, env }) = result {
+        // Split up the variables and environment name immediately to avoid difficulties with borrowing
         // `env` later on
-        let (mut vars, env_path): (Vec<KeyValue>, Option<PathBuf>) = env
-            .map_or((vec![], None), |(env, env_path)| {
-                (env.variables, Some(env_path))
-            });
+        let (mut vars, env_name): (Vec<KeyValue>, String) =
+            env.map_or((vec![], "<none>".to_string()), |e| (e.variables, e.name));
 
         vars.sort();
         if let Some(bindings) = args.binding {
@@ -141,10 +132,10 @@ fn run() -> anyhow::Result<()> {
 
         // Substitute the variables that we have at this point into all the places of the
         // RequestDefinitions that they can be used (URL, headers, body, query string)
-        templating::substitute_all(&mut request_definition, &vars);
+        templating::substitute_all(&mut def, &vars);
 
         // // If any unbound variables remain, prompt the user to enter them interactively
-        let unbound_variables = templating::list_unbound_variables(&request_definition);
+        let unbound_variables = templating::list_unbound_variables(&def);
 
         let additional_vars: anyhow::Result<Option<Vec<KeyValue>>> = {
             if !unbound_variables.is_empty() {
@@ -158,8 +149,7 @@ fn run() -> anyhow::Result<()> {
                     interactive::prompt_for_variables(
                         &config,
                         unbound_variables,
-                        &request_definition_path,
-                        env_path.as_deref(),
+                        &env_name,
                         &mut keys.as_mut().unwrap(),
                         &mut terminal.as_mut().unwrap(),
                     )
@@ -171,27 +161,26 @@ fn run() -> anyhow::Result<()> {
             }
         };
 
-        let additional_vars = additional_vars?;
-
         // Switch back to the original screen
         drop(terminal);
 
         // Flush stdout so the interactive terminal screen is cleared immediately
         std::io::stdout().flush().ok();
 
+        let additional_vars = additional_vars?;
+
         // `prompt_for_variables` returning None means the user aborted with Ctrl-C and we
         // should not send the request
         if let Some(additional_vars) = additional_vars {
             // Do the final substition with the user-provided variables
-            templating::substitute_all(&mut request_definition, &additional_vars);
+            templating::substitute_all(&mut def, &additional_vars);
 
             let mut sp: Option<Spinner> = None;
             if is_tty {
                 sp = Some(Spinner::new(Spinners::Dots, "Sending request...".into()));
             }
 
-            let res = http::send_request(request_definition, &config)
-                .context("Failed sending request")?;
+            let res = http::send_request(def, &config).context("Failed sending request")?;
             if let Some(s) = sp {
                 s.stop();
                 println!("\n");

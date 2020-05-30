@@ -2,7 +2,7 @@ use crate::choice::Choice;
 use crate::config::Config;
 use crate::environment::Environment;
 use anyhow::Context;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 /// Try to load the appropriate struct from the provided file path, if present, and fail with a
@@ -59,21 +59,4 @@ pub fn list_all_environments(config: &Config) -> Vec<(Environment, PathBuf)> {
             }
         })
         .collect()
-}
-
-/// Get the last component of a Path, for use in the history file, to account for users moving
-/// their files around (but keeping the same name)
-pub fn last_component(path: &Path) -> String {
-    path.components()
-        .filter_map(|comp| {
-            if let Component::Normal(inside) = comp {
-                Some(inside)
-            } else {
-                None
-            }
-        })
-        .last()
-        .map_or("<none>".to_string(), |comp| {
-            comp.to_string_lossy().into_owned()
-        })
 }

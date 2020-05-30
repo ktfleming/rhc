@@ -4,7 +4,6 @@ use crate::environment::Environment;
 use crate::files;
 use crate::keyvalue::KeyValue;
 use crate::request_definition::RequestDefinition;
-use std::borrow::Cow;
 use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::io::{BufRead, BufReader};
@@ -72,11 +71,8 @@ impl InteractiveState {
 }
 
 pub struct SelectedValues {
-    /// The RequestDefinition and its file name
-    pub def: (RequestDefinition, PathBuf),
-
-    /// The Environment and its file name, if one was selected
-    pub env: Option<(Environment, PathBuf)>,
+    pub def: RequestDefinition,
+    pub env: Option<Environment>,
 }
 
 pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Write>(
@@ -315,12 +311,11 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
         Some(path) => {
             let def: RequestDefinition =
                 files::load_file(&path, RequestDefinition::new, "request definition")?;
-            let env: Option<(Environment, PathBuf)> =
-                app_state.active_env_index.map(|i| environments.remove(i));
-            Some(SelectedValues {
-                def: (def, path),
-                env,
-            })
+            let env: Option<Environment> = app_state
+                .active_env_index
+                .map(|i| environments.remove(i))
+                .map(|(e, _)| e);
+            Some(SelectedValues { def, env })
         }
     };
 
@@ -348,15 +343,15 @@ impl PromptState {
 }
 
 #[derive(Eq, PartialEq)]
-struct HistoryItem<'a> {
-    value: Cow<'a, str>,
-    def_path: Cow<'a, str>,
-    env_path: Cow<'a, str>,
+struct HistoryItem {
+    name: String,
+    value: String,
+    env_name: String,
 }
 
-impl<'a> HistoryItem<'a> {
+impl<'a> HistoryItem {
     fn format(&self) -> String {
-        format!("{}|||{}|||{}", self.value, self.def_path, self.env_path)
+        format!("{}|||{}|||{}", self.name, self.value, self.env_name)
     }
 }
 
@@ -366,8 +361,7 @@ impl<'a> HistoryItem<'a> {
 pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io::Write>(
     config: &Config,
     names: Vec<&str>,
-    def_path: &Path,
-    env_path: Option<&Path>,
+    env_name: &str,
     stdin: &mut Keys<R>,
     terminal: &mut Terminal<B>,
 ) -> anyhow::Result<Option<Vec<KeyValue>>> {
@@ -402,11 +396,11 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
         .filter_map(|l| {
             if let Ok(l) = l {
                 let split: Vec<&str> = l.split("|||").collect();
-                if let [value, def_path, env_path] = split.as_slice() {
+                if let [name, value, env_name] = split.as_slice() {
                     Some(HistoryItem {
-                        value: Cow::Owned((*value).to_string()),
-                        def_path: Cow::Owned((*def_path).to_string()),
-                        env_path: Cow::Owned((*env_path).to_string()),
+                        name: (*name).to_string(),
+                        value: (*value).to_string(),
+                        env_name: (*env_name).to_string(),
                     })
                 } else {
                     None
@@ -428,17 +422,11 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
     loop {
         io::stdout().flush().ok();
 
-        // First, filter to just the history items that were used for this request definition and
+        // First, filter to just the history items that were used for this variable name and
         // environment
         let mut filtered_history_items: Vec<&HistoryItem> = full_history
             .iter()
-            .filter(|item| {
-                item.def_path == files::last_component(def_path)
-                    && item.env_path
-                        == env_path
-                            .map(files::last_component)
-                            .unwrap_or_else(|| "<none>".to_string())
-            })
+            .filter(|item| item.name == names[current_name_index] && item.env_name == env_name)
             .collect();
 
         // Fuzzy matching is basically the same as for choosing a request definition
@@ -461,7 +449,7 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
         let in_history_mode = state.active_history_item_index.is_some();
         let matching_history_items = filtered_history_items.iter().map(|item| {
             if in_history_mode {
-                Text::raw(format!("{}", item.value))
+                Text::raw(item.value.to_string())
             } else {
                 Text::raw(format!("   {}", item.value))
             }
@@ -558,15 +546,10 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
                         // Assume that an empty string answer is never what they want
                         let answer = KeyValue::new(names[current_name_index], &state.query);
 
-                        let short_def_path = files::last_component(def_path);
-                        let short_env_path = env_path
-                            .map(files::last_component)
-                            .unwrap_or_else(|| "<none>".to_string());
-
                         let new_item = HistoryItem {
-                            value: Cow::Owned(answer.value.clone()),
-                            def_path: Cow::Owned(short_def_path),
-                            env_path: Cow::Owned(short_env_path),
+                            name: answer.name.clone(),
+                            value: answer.value.clone(),
+                            env_name: env_name.to_string(),
                         };
 
                         if !full_history.contains(&new_item) {
@@ -607,15 +590,18 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
     // tail of appropriate size
     let mut all_history = full_history;
     all_history.append(&mut created_items);
-    let excess_items = all_history.len() as u64 - config.max_history_items.unwrap_or(1000);
-    if excess_items > 0 {
+    let max = config.max_history_items.unwrap_or(1000) as usize;
+
+    if all_history.len() > max {
         drop(history_file);
+
+        let excess_items = all_history.len() - max;
 
         let mut rewrite_file = OpenOptions::new()
             .write(true)
             .truncate(true)
             .open(history_location.as_ref())?;
-        for item in all_history.iter().skip(excess_items as usize) {
+        for item in all_history.iter().skip(excess_items) {
             writeln!(rewrite_file, "{}", item.format())?;
         }
     }
