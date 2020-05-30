@@ -6,7 +6,6 @@ use crate::keyvalue::KeyValue;
 use crate::request_definition::RequestDefinition;
 use std::fs::OpenOptions;
 use std::io::{self, Write};
-use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use sublime_fuzzy::best_match;
@@ -349,12 +348,6 @@ struct HistoryItem {
     env_name: String,
 }
 
-impl<'a> HistoryItem {
-    fn format(&self) -> String {
-        format!("{}|||{}|||{}", self.name, self.value, self.env_name)
-    }
-}
-
 /// Given a list of unbound variable names, prompt the user to interactively enter values to bind
 /// them to, and return those created KeyValues. Returning None means the user aborted with Ctrl-C
 /// and we should not send the request.
@@ -382,20 +375,24 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
     let prompt = "> ";
 
     let history_location = shellexpand::tilde(&config.history_file);
-    let mut history_file = OpenOptions::new()
+    let history_file = OpenOptions::new()
         .append(true)
         .read(true)
         .create(true)
         .open(history_location.as_ref())?;
 
     // Clone the file handle since we need to read from it here, and append to it in the loop
-    let history_reader = BufReader::new(history_file.try_clone()?);
+    let mut history_reader = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .from_reader(history_file.try_clone()?);
+    let mut history_writer = csv::Writer::from_writer(history_file);
 
     let full_history: Vec<HistoryItem> = history_reader
-        .lines()
-        .filter_map(|l| {
-            if let Ok(l) = l {
-                let split: Vec<&str> = l.split("|||").collect();
+        .records()
+        .filter_map(|record| {
+            if let Ok(record) = record {
+                // let split: Vec<&str> = l.split("|||").collect();
+                let split: Vec<&str> = record.iter().collect();
                 if let [name, value, env_name] = split.as_slice() {
                     Some(HistoryItem {
                         name: (*name).to_string(),
@@ -553,7 +550,12 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
                         };
 
                         if !full_history.contains(&new_item) {
-                            writeln!(history_file, "{}", new_item.format())?;
+                            // writeln!(history_file, "{}", new_item.format())?;
+                            history_writer.write_record(&[
+                                answer.name.clone(),
+                                answer.value.clone(),
+                                env_name.to_string(),
+                            ])?;
 
                             // Keep track of the new items so we can re-write the file at the end of
                             // this function, which is necessary if the number of history items exceeds
@@ -593,16 +595,21 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
     let max = config.max_history_items.unwrap_or(1000) as usize;
 
     if all_history.len() > max {
-        drop(history_file);
+        drop(history_writer);
 
         let excess_items = all_history.len() - max;
 
-        let mut rewrite_file = OpenOptions::new()
+        let rewrite_file = OpenOptions::new()
             .write(true)
             .truncate(true)
             .open(history_location.as_ref())?;
+        let mut history_rewriter = csv::Writer::from_writer(rewrite_file);
         for item in all_history.iter().skip(excess_items) {
-            writeln!(rewrite_file, "{}", item.format())?;
+            history_rewriter.write_record(&[
+                item.name.clone(),
+                item.value.clone(),
+                item.env_name.clone(),
+            ])?;
         }
     }
 
