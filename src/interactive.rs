@@ -3,7 +3,7 @@ use crate::config::Config;
 use crate::environment::Environment;
 use crate::files;
 use crate::keyvalue::KeyValue;
-use crate::request_definition::RequestDefinition;
+use crate::{colors::Colors, request_definition::RequestDefinition};
 use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -12,7 +12,7 @@ use sublime_fuzzy::best_match;
 use termion::cursor::{Goto, Hide, Show};
 use termion::event::Key;
 use termion::input::Keys;
-use tui::style::{Color, Modifier, Style};
+use tui::style::{Modifier, Style};
 use tui::widgets::{List, ListState, Paragraph, Text};
 use tui::Terminal;
 use unicode_width::UnicodeWidthStr;
@@ -31,17 +31,6 @@ pub fn cut_to_current_word_start(s: &mut String) {
             cut_a_letter = true;
         }
     }
-}
-
-fn get_list_styles() -> (Style, Style) {
-    let default_style = Style::default().fg(Color::Black).bg(Color::White);
-
-    let highlight_style = default_style
-        .fg(Color::Black)
-        .bg(Color::LightGreen)
-        .modifier(Modifier::BOLD);
-
-    (default_style, highlight_style)
 }
 
 struct InteractiveState {
@@ -112,8 +101,26 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
         }
     });
 
-    let (default_style, highlight_style) = get_list_styles();
-    let prompt_style = Style::default().fg(Color::Blue);
+    let colors = Colors::from(&config.colors);
+    let mut default_style = Style::default();
+    if let Some(default_fg) = colors.default_fg {
+        default_style = default_style.fg(default_fg);
+    }
+    if let Some(default_bg) = colors.default_bg {
+        default_style = default_style.bg(default_bg);
+    }
+
+    let mut selected_style = Style::default()
+        .fg(colors.selected_fg)
+        .modifier(Modifier::BOLD);
+    if let Some(selected_bg) = colors.selected_bg {
+        selected_style = selected_style.bg(selected_bg);
+    }
+
+    let mut prompt_style = Style::default().fg(colors.prompt_fg);
+    if let Some(prompt_bg) = colors.prompt_bg {
+        prompt_style = prompt_style.bg(prompt_bg);
+    }
 
     // Load all the environments available
     let mut environments: Vec<(Environment, PathBuf)> = files::list_all_environments(&config);
@@ -199,7 +206,7 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
             let list = List::new(items)
                 .style(default_style)
                 .start_corner(tui::layout::Corner::BottomLeft)
-                .highlight_style(highlight_style)
+                .highlight_style(selected_style)
                 .highlight_symbol(highlight_symbol);
 
             // The list of choices takes up the whole terminal except for the very bottom row
@@ -367,7 +374,31 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
     let mut state = PromptState::new();
     let mut result: Vec<KeyValue> = Vec::new();
 
-    let variable_name_style = Style::default().fg(Color::Cyan);
+    let colors = Colors::from(&config.colors);
+    let mut default_style = Style::default();
+    if let Some(default_fg) = colors.default_fg {
+        default_style = default_style.fg(default_fg);
+    }
+    if let Some(default_bg) = colors.default_bg {
+        default_style = default_style.bg(default_bg);
+    }
+
+    let mut selected_style = Style::default()
+        .fg(colors.selected_fg)
+        .modifier(Modifier::BOLD);
+    if let Some(selected_bg) = colors.selected_bg {
+        selected_style = selected_style.bg(selected_bg);
+    }
+
+    let mut prompt_style = Style::default().fg(colors.prompt_fg);
+    if let Some(prompt_bg) = colors.prompt_bg {
+        prompt_style = prompt_style.bg(prompt_bg);
+    }
+
+    let mut variable_style = Style::default().fg(colors.variable_fg);
+    if let Some(variable_bg) = colors.variable_bg {
+        variable_style = variable_style.bg(variable_bg);
+    }
 
     // Which item in the `names` vector we are currently prompting for
     let mut current_name_index = 0;
@@ -412,8 +443,6 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
     // interactively
     let mut created_items: Vec<HistoryItem> = vec![];
 
-    let (default_style, highlight_style) = get_list_styles();
-
     let highlight_symbol = ">> ";
 
     loop {
@@ -455,17 +484,14 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
         let list = List::new(matching_history_items)
             .start_corner(tui::layout::Corner::BottomLeft)
             .style(default_style)
-            .highlight_style(highlight_style)
+            .highlight_style(selected_style)
             .highlight_symbol(highlight_symbol);
 
         let explanation_text = [
             Text::raw("Enter a value for "),
-            Text::styled(names[current_name_index], variable_name_style),
+            Text::styled(names[current_name_index], variable_style),
         ];
         let explanation_widget = Paragraph::new(explanation_text.iter());
-
-        let query_text = [Text::raw(format!("{}{}", prompt, &state.query))];
-        let query_widget = Paragraph::new(query_text.iter());
 
         terminal.draw(|mut f| {
             let width = f.size().width;
@@ -481,6 +507,12 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
 
             // The bottom row is for input
             let query_rect = tui::layout::Rect::new(0, height - 1, width, 1);
+            let query_text = [
+                Text::Styled(prompt.into(), prompt_style),
+                Text::raw(&state.query),
+            ];
+
+            let query_widget = Paragraph::new(query_text.iter());
             f.render_widget(query_widget, query_rect);
         })?;
 

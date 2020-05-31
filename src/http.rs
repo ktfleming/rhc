@@ -84,18 +84,7 @@ fn test_bad_files() {
             path.to_string_lossy()
         );
 
-        let empty_config = Config {
-            request_definition_directory: "fake".to_string(),
-            environment_directory: "fake".to_string(),
-            history_file: "fake".to_string(),
-            theme: None,
-            connect_timeout_seconds: None,
-            read_timeout_seconds: None,
-            timeout_seconds: None,
-            max_history_items: None,
-        };
-
-        let prepared = prepare_request(def.unwrap(), &empty_config);
+        let prepared = prepare_request(def.unwrap(), &Config::default());
         assert!(
             prepared.is_err(),
             "expected file {:?} to error on calling prepare_request, but it was OK",

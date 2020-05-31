@@ -1,5 +1,6 @@
 pub mod args;
 pub mod choice;
+pub mod colors;
 pub mod config;
 pub mod environment;
 pub mod files;
