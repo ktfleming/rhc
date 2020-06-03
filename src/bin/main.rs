@@ -29,6 +29,8 @@ use termion::screen::AlternateScreen;
 use termion::AsyncReader;
 use tui::backend::TermionBackend;
 use tui::Terminal;
+use simplelog::{CombinedLogger, WriteLogger, LevelFilter, Config as LogConfig};
+use std::fs::File;
 
 fn main() {
     if let Err(e) = run() {
@@ -55,6 +57,11 @@ fn get_terminal() -> anyhow::Result<OurTerminal> {
 }
 
 fn run() -> anyhow::Result<()> {
+    CombinedLogger::init(
+        vec![
+            WriteLogger::new(LevelFilter::Debug, LogConfig::default(), File::create("my_rust_binary.log").unwrap()),
+        ]
+    ).unwrap();
     let args: Args = Args::from_args();
 
     // If the user specifies a config location, make sure there's actually a file there
