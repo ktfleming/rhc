@@ -200,7 +200,7 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
             let height = f.size().height;
 
             // The maximum number of items we can display is limited by the height of the terminal
-            let list_rows = std::cmp::min(filtered_choices.len() as u16, height).checked_sub(1).unwrap_or(0);
+            let list_rows = std::cmp::min(filtered_choices.len() as u16, height.checked_sub(1).unwrap_or(0));
             let items = filtered_choices
                 .iter()
                 // Have to make room for the highlight symbol, and a 1-column margin on the right
@@ -350,7 +350,7 @@ impl PromptState {
     }
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Debug)]
 struct HistoryItem {
     name: String,
     value: String,
@@ -462,7 +462,8 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
             let mut matching_items: Vec<(isize, &HistoryItem)> = filtered_history_items
                 .iter()
                 .filter_map(|item| {
-                    best_match(&state.query, &item.value).map(|result| (result.score(), *item))
+                    let result = best_match(&state.query, &item.value).map(|result| (result.score(), *item));
+                    result
                 })
                 .collect();
 
@@ -471,6 +472,7 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
             filtered_history_items = matching_items.iter().map(|(_, item)| *item).collect();
         };
 
+        debug!("{:?}", filtered_history_items);
         state.list_state.select(state.active_history_item_index);
 
         let in_history_mode = state.active_history_item_index.is_some();
@@ -502,7 +504,7 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
             // vertical list is limited by the terminal's height. We also need to reserve 2 rows
             // for the explanation and query rows. Be careful not to run into overflow, as these
             // are unsigned integers.
-            let list_rows = std::cmp::min(filtered_history_items.len() as u16, height).checked_sub(2).unwrap_or(0);
+            let list_rows = std::cmp::min(filtered_history_items.len() as u16, height.checked_sub(2).unwrap_or(0));
 
             // History selection box is all of the screen except the bottom 2 rows
             let history_rect = tui::layout::Rect::new(0, height - list_rows - 2, width, list_rows);
