@@ -198,7 +198,8 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
             let width = f.size().width;
             let height = f.size().height;
 
-            let num_items = filtered_choices.len() as u16;
+            // The maximum number of items we can display is limited by the height of the terminal
+            let num_items = std::cmp::min(filtered_choices.len() as u16, height) - 1;
             let items = filtered_choices
                 .iter()
                 // Have to make room for the highlight symbol, and a 1-column margin on the right
@@ -471,7 +472,6 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
 
         state.list_state.select(state.active_history_item_index);
 
-        let num_items = filtered_history_items.len() as u16;
         let in_history_mode = state.active_history_item_index.is_some();
         let matching_history_items = filtered_history_items.iter().map(|item| {
             if in_history_mode {
@@ -496,6 +496,10 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
         terminal.draw(|mut f| {
             let width = f.size().width;
             let height = f.size().height;
+
+            // Similar to selecting a request definition, the number of items we can display in the
+            // vertical list is limited by the terminal's height.
+            let num_items = std::cmp::min(filtered_history_items.len() as u16, height) - 2;
 
             // History selection box is all of the screen except the bottom 2 rows
             let history_rect = tui::layout::Rect::new(0, height - num_items - 2, width, num_items);
@@ -582,7 +586,6 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
                         };
 
                         if !full_history.contains(&new_item) {
-                            // writeln!(history_file, "{}", new_item.format())?;
                             history_writer.write_record(&[
                                 answer.name.clone(),
                                 answer.value.clone(),
@@ -607,6 +610,7 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
                         state.query.clear();
                         write!(terminal.backend_mut(), "{}", Show)?;
                         if current_name_index >= names.len() {
+                            println!("Breaking...");
                             break;
                         }
                     }

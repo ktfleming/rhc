@@ -110,7 +110,7 @@ fn run() -> anyhow::Result<()> {
     // None, and will be created on-demand if necessary (no request definition file provided, or
     // unbound variables exist).
     let mut keys: Option<Keys<AsyncReader>> = None;
-    let mut terminal: Option<Terminal<TermionBackend<AlternateScreen<RawTerminal<Stdout>>>>> = None;
+    let mut terminal: Option<OurTerminal> = None;
 
     // If the user specified a request definition file, just use that; otherwise, enter interactive
     // mode to allow them to choose a request definition. In either case, we need to keep track of
