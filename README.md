@@ -23,6 +23,33 @@ method = "GET"
 
 Then try running `rhc -f ~/rhc/definitions/test.toml`. rhc will send a GET request to `https://httpbin.org/get`, and you should see the response, including the status code, headers, and body printed to stdout.
 
+#### Request
+The `request` table in the request definition file species the method and URL to use. Both are required. 
+
+Valid values for the `method` key are "GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH", and "TRACE".
+
+#### Query Parameters
+You can specify query parameters in the `query` table:
+
+```toml
+[request]
+url = "https://httpbin.org/get"
+method = "GET"
+
+[query]
+params = [
+  { name = "id", value = "12345" }
+]
+```
+
+Alternatively, you can specify them directly in `request.url`:
+
+```
+[request]
+url = "https://httpbin.org/get?id=12345"
+method = "GET"
+```
+
 #### Headers
 You can specify headers under a `headers` table, like so:
 ```toml
@@ -76,9 +103,11 @@ method = "POST"
 [body]
 type = "urlencoded"
 content = [
-  { name = "key1", value = "value1" },
+  { name = "key1", value = "something" },
   { name = "あいうえお", value = "猪" }
 ]
 ```
 
 The `Content-Type` header on the request will automatically be set to `text/plain`, `application/json`, or `application/x-www-form-urlencoded`, respectively. Note that for a JSON body, it is recommended to use [multi-line literal strings](https://github.com/toml-lang/toml#string) (triple single-quotes) to wrap the raw JSON value. This way you can use double quotations to place JSON strings in the body.
+
+
