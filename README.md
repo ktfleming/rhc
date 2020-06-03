@@ -44,7 +44,7 @@ params = [
 
 Alternatively, you can specify them directly in `request.url`:
 
-```
+```toml
 [request]
 url = "https://httpbin.org/get?id=12345"
 method = "GET"
@@ -72,6 +72,7 @@ You can specify a request body as plain text, a JSON value or URL-encoded data. 
 url = "https://httpbin.org/post"
 method = "POST"
 
+# Plain text body
 [body]
 type = "text"
 content = "Some plain text"
@@ -82,6 +83,7 @@ content = "Some plain text"
 url = "https://httpbin.org/post"
 method = "POST"
 
+# JSON body
 [body]
 type = "json"
 content = '''
@@ -100,6 +102,7 @@ content = '''
 url = "https://httpbin.org/post"
 method = "POST"
 
+# URL-encoded body
 [body]
 type = "urlencoded"
 content = [
@@ -110,4 +113,43 @@ content = [
 
 The `Content-Type` header on the request will automatically be set to `text/plain`, `application/json`, or `application/x-www-form-urlencoded`, respectively. Note that for a JSON body, it is recommended to use [multi-line literal strings](https://github.com/toml-lang/toml#string) (triple single-quotes) to wrap the raw JSON value. This way you can use double quotations to place JSON strings in the body.
 
+Note that `multipart/form-data` requests are not directly supported.
 
+#### Metadata
+An optional `metadata` table can provide extra information about the request definition that isn't actually used when sending the request. Currently there is one possible metadata key, which is `description`. This optional description will be displayed in rhc's interactive mode (to be explained later in this document).
+
+```toml
+[metadata]
+description = "GET example using httpbin"
+
+[request]
+url = "https://httpbin.org/get"
+method = "GET"
+```
+
+#### Variables
+It's possible to use variables in most parts of the request definition, for values that could change depending on the context in which you're sending the request. The ways that variables can be bound will be explained later, but first, this example shows all the places that variables can be used:
+
+```toml
+[request]
+url = "https://httpbin.org/post?something={var1}" # in the URL
+method = "POST"
+
+[query]
+params = [
+  { name = "id", value = "12345" }
+]
+
+[body]
+type = "json"
+content = '''
+{
+  "some_key": "{var1}",
+  "a_number": {var1},
+  "nested": {
+    "{var1}": true,
+    "other": null
+  }
+}'''
+
+```
