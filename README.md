@@ -128,28 +128,35 @@ method = "GET"
 ```
 
 #### Variables
-It's possible to use variables in most parts of the request definition, for values that could change depending on the context in which you're sending the request. The ways that variables can be bound will be explained later, but first, this example shows all the places that variables can be used:
+It's possible to use variables in most parts of the request definition, for values that could change depending on the context in which you're sending the request. Variables are denoted by surrounding them with curly braces. The ways that variables can be bound will be explained later, but first, this example shows all the places that variables can be used:
 
 ```toml
 [request]
-url = "https://httpbin.org/post?something={var1}" # in the URL
+url = "https://httpbin.org/post?something={var1}" # In the URL
 method = "POST"
 
 [query]
 params = [
-  { name = "id", value = "12345" }
+  { name = "{the_name}", value = "{the_value}" } # In query parameters
 ]
 
+headers = [
+  { name = "Authorization", value = "Bearer {token}" } # In headers
+]
+
+# In request bodies
 [body]
 type = "json"
 content = '''
 {
-  "some_key": "{var1}",
-  "a_number": {var1},
-  "nested": {
-    "{var1}": true,
-    "other": null
-  }
+  "some_key": "{something}",
+  "{something_else}": 123
 }'''
 
 ```
+
+One way to bind variables is to use the `-b` or `--binding` command-line argument:
+
+`rhc -b token=xyz -b something=12345 -f definition-toml`
+
+The other ways to bind variables involve environments and rhc's interactive mode, which will be explained next.
