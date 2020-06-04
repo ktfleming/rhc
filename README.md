@@ -157,6 +157,43 @@ content = '''
 
 One way to bind variables is to use the `-b` or `--binding` command-line argument:
 
-`rhc -b token=xyz -b something=12345 -f definition-toml`
+`rhc -b token=xyz -b something=12345 -f definition.toml`
 
 The other ways to bind variables involve environments and rhc's interactive mode, which will be explained next.
+
+### Environments
+
+Environments are predefined groups of variables that are stored in a TOML file. They have this format:
+```toml
+name = "Staging"
+variables = [
+  { name = "token", value = "xyz" },
+  { name = "something", value = "12345" }
+]
+```
+
+You can specify an environment file to use with the `-e` or `--environment` argument:
+
+`rhc -e staging.toml -f definition.toml`
+
+By doing so, all the variables defined in the environment file will be automatically bound, and specifying them via the command line is not necessary (although you can still do so, and bindings specified via the command line will take higher precedence).
+
+The names and values of variables defined in an environment file must be TOML strings. It's still possible to use variables as, for example, JSON numbers and booleans:
+
+```toml
+# In the request definition file
+[body]
+type = "json"
+content = '''
+{
+  "a_number": {var1},
+  "a_bool": {var2}
+}
+'''
+
+# In the environment file
+variables = [
+  { name = "var1", value = "123" },
+  { name = "var2", value = "true" }
+]
+```

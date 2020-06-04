@@ -180,6 +180,8 @@ fn run() -> anyhow::Result<()> {
             for binding in bindings {
                 match vars.binary_search_by(|item| item.name.cmp(&binding.name)) {
                     Ok(index) => {
+                        // If variable is already present, overwrite it with the one passed on the
+                        // command line (these have the highest priority)
                         vars.remove(index);
                         vars.insert(index, binding);
                     }
