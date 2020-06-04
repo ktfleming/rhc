@@ -16,7 +16,6 @@ use tui::style::{Modifier, Style};
 use tui::widgets::{List, ListState, Paragraph, Text};
 use tui::Terminal;
 use unicode_width::UnicodeWidthStr;
-use log::debug;
 
 /// Like readline Ctrl-W
 pub fn cut_to_current_word_start(s: &mut String) {
@@ -472,7 +471,6 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
             filtered_history_items = matching_items.iter().map(|(_, item)| *item).collect();
         };
 
-        debug!("{:?}", filtered_history_items);
         state.list_state.select(state.active_history_item_index);
 
         let in_history_mode = state.active_history_item_index.is_some();
