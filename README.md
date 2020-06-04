@@ -51,7 +51,7 @@ method = "GET"
 ```
 
 #### Headers
-You can specify headers under a `headers` table, like so:
+You can specify headers under a `headers` table:
 ```toml
 [request]
 url = "https://httpbin.org/get"
@@ -140,6 +140,7 @@ params = [
   { name = "{the_name}", value = "{the_value}" } # In query parameters
 ]
 
+[headers]
 headers = [
   { name = "Authorization", value = "Bearer {token}" } # In headers
 ]
@@ -157,7 +158,9 @@ content = '''
 
 One way to bind variables is to use the `-b` or `--binding` command-line argument:
 
-`rhc -b token=xyz -b something=12345 -f definition.toml`
+```
+$ rhc -b token=xyz -b something=12345 -f definition.toml
+```
 
 The other ways to bind variables involve environments and rhc's interactive mode, which will be explained next.
 
@@ -174,14 +177,16 @@ variables = [
 
 You can specify an environment file to use with the `-e` or `--environment` argument:
 
-`rhc -e staging.toml -f definition.toml`
+```
+$ rhc -e staging.toml -f definition.toml
+```
 
 By doing so, all the variables defined in the environment file will be automatically bound, and specifying them via the command line is not necessary (although you can still do so, and bindings specified via the command line will take higher precedence).
 
 The names and values of variables defined in an environment file must be TOML strings. It's still possible to use variables as, for example, JSON numbers and booleans:
 
 ```toml
-# In the request definition file
+# In the request definition file:
 [body]
 type = "json"
 content = '''
@@ -191,7 +196,7 @@ content = '''
 }
 '''
 
-# In the environment file
+# In the environment file:
 variables = [
   { name = "var1", value = "123" },
   { name = "var2", value = "true" }
