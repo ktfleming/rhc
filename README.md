@@ -202,3 +202,36 @@ variables = [
   { name = "var2", value = "true" }
 ]
 ```
+
+### Interactive Mode
+
+Rather than specifying a request definition, environment, and bindings via command-line arguments, you can also set all of these by using rhc's interactive mode.
+
+#### Interactively selecting a request definition
+
+Running `rhc` without specifying a request definition file will open an interactive interface where you can select a request definition from among all the TOML files contained in your base definition directly, which is `~/rhc/definitions` by default, but can be customized with a config file. (TODO: internal link to config section) You can organize files under this directory as you like; for example, using subdirectories to represent groupings of request definitions for the same API:
+
+```
+~/rhc/definitions
+├── weather_api
+│   ├── get_forecast.toml
+│   └── get_historical_data.toml
+├── twitter
+│   ├── post_tweet.toml
+│   ├── get_tweets.toml
+...
+```
+
+In interactive mode, rhc will initially display a list of all request definition files it can find, along with their descriptions, if present: (TODO: screenshot)
+
+You can type freely to filter the list, using fuzzy matching: (TODO: screenshot)
+
+Press ENTER to select the currently highlighted request definition file. Pressing TAB or Shift-TAB will change the currently selected environment, cycling through all environment files located in the base environments directory, which is `~/rhc/environments` by default. The name of the currently selected enviroment is displayed in the prompt. There are also a few more convenient key mappings you can use:
+
+- `Ctrl-c` will quit rhc without sending any request
+- `Ctrl-w` will cut to the start of the current word, Readline-style
+- `Ctrl-u` will clear the current query
+- `Ctrl-p` or `Up` will move the selection up
+- `Ctrl-n` or `Down` will move the selection down
+
+#### Interactively 

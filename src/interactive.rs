@@ -247,7 +247,7 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
                 Key::Ctrl('u') => {
                     app_state.query.clear();
                 }
-                Key::Ctrl('k') | Key::Up => {
+                Key::Ctrl('p') | Key::Up => {
                     // Navigate up (increase selection index)
                     if let Some(selected) = app_state.list_state.selected() {
                         if selected < filtered_choices.len() - 1 {
@@ -255,7 +255,7 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
                         }
                     }
                 }
-                Key::Ctrl('j') | Key::Down => {
+                Key::Ctrl('n') | Key::Down => {
                     // Navigate down (decrease selection index)
                     if let Some(selected) = app_state.list_state.selected() {
                         if selected > 0 {
@@ -557,14 +557,14 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
                         }
                     }
                 }
-                Key::Ctrl('k') | Key::Up => {
+                Key::Ctrl('p') | Key::Up => {
                     if let Some(i) = state.active_history_item_index {
                         if i < filtered_history_items.len() - 1 {
                             state.active_history_item_index = Some(i + 1);
                         }
                     }
                 }
-                Key::Ctrl('j') | Key::Down => {
+                Key::Ctrl('n') | Key::Down => {
                     if let Some(i) = state.active_history_item_index {
                         if i > 0 {
                             state.active_history_item_index = Some(i - 1);
