@@ -241,3 +241,51 @@ rhc requires that all variables present in the selected request definition file 
 rhc saves a history of what values you have bound to variables in the past, and will display a list of values previously used for the current (variable name, environment) pair. As you type, the displayed list will be filtered based on fuzzy-matching against what you have typed. Pressing ENTER will bind the current variable to what you have entered in the prompt. On the other hand, if you want to re-use a historical value, you can press TAB to switch from "entry mode" to "historical selection" mode, signified by the `>>` cursor appearing in the list of historical values. In this mode, pressing ENTER will bind the selected historical value, ignoring whatever is currently typed at the prompt. (TODO: screenshot)
 
 Otherwise, the same key mappings described above apply here as well.
+
+### Configuration File
+
+rhc will look for an optional configuration file, in this order:
+1. The file specified with the `--config` argument, if present
+2. `$XDG_CONFIG_HOME/rhc/config.toml`, if `XDG_CONFIG_HOME `is defined
+3. `~/.config/rhc/config.toml, `if present
+
+If none of the above files are present, a default configuration will be used. Here's a sample config file with explanations of the settings and their default values:
+
+```TOML
+# The directory to scan for request definition files when run in interactive
+# mode. Defaults to ~/rhc/definitions
+request_definition_directory = "~/rhc/definitions"
+
+# The directory to scan for environment files when run in interactive
+# mode. Defaults to ~/rhc/environments
+environment_directory = "~/rhc/environments"
+
+# The file to store variable binding history in. Defaults to ~/.rhc_history
+history_file = "~/.rhc_history"
+
+# The maximum number of lines to save in the history file. Defaults to 1000.
+max_history_items = 1000
+
+# A timeout in seconds for establishing a TCP connection. Defaults to 30 seconds.
+connect_timeout_seconds = 30
+
+# A timeout in seconds for reading data. Defaults to 30 seconds.
+read_timeout_seconds = 30
+
+# A timeout in seconds for the entire request (until the request body finishes
+# tranferring). Defaults to 30 seconds; set to 0 for no timeout.
+timeout_seconds = 30
+
+# A theme to use to color JSON output. See below for more details.
+theme = "~/rhc/one-half-light.tmTheme"
+
+# Various color settings. See below for more details.
+[colors]
+default_fg = "blue"
+default_bg = "indexed(182)"
+prompt_fg = "rgb(100, 150, 200)"
+```
+
+#### Theme
+
+#### Colors
