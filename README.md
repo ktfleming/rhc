@@ -2,7 +2,7 @@
 
 ## Introduction
 
-`rhc` is a command-line tool for storing and quickly dispatching HTTP requests. Perhaps the most similar well-known tool is [Postman](https://www.postman.com/), although rhc has only a fraction of Postman's features. On the other hand, it fits well into a command-line/terminal-centric workflow, and is designed to allow you to select and dispatch a desired request as quickly as possible.
+`rhc` is a command-line tool for storing and quickly dispatching HTTP requests. It fits well into a command-line/terminal-centric workflow, and is designed to allow you to select and dispatch a desired request as quickly as possible.
 
 ## Installation
 
@@ -22,6 +22,8 @@ method = "GET"
 ```
 
 Then try running `rhc ~/rhc/definitions/test.toml`. rhc will send a GET request to `https://httpbin.org/get`, and you should see the response, including the status code, headers, and body printed to stdout.
+
+Running `rhc --help` will show a brief description of available command-line arguments, most of which are explained more fully in this document.
 
 #### Request
 The `request` table in the request definition file species the method and URL to use. Both are required. 
@@ -153,7 +155,6 @@ content = '''
   "some_key": "{something}",
   "{something_else}": 123
 }'''
-
 ```
 
 One way to bind variables is to use the `-b` or `--binding` command-line argument:
@@ -209,7 +210,7 @@ Rather than specifying a request definition, environment, and bindings via comma
 
 #### Interactively selecting a request definition
 
-Running `rhc` without specifying a request definition file will open an interactive interface where you can select a request definition from among all the TOML files contained in your base definition directly, which is `~/rhc/definitions` by default, but can be customized with a config file. (TODO: internal link to config section) You can organize files under this directory as you like; for example, using subdirectories to represent groupings of request definitions for the same API:
+Running `rhc` without specifying a request definition file will open an interactive interface where you can select a request definition from among all the TOML files contained in your base definition directly, which is `~/rhc/definitions` by default, but can be customized with a [config file](#configuration-file). You can organize files under this directory as you like; for example, using subdirectories to represent groupings of request definitions for the same API:
 
 ```
 ~/rhc/definitions

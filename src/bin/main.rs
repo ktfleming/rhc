@@ -269,7 +269,7 @@ fn run() -> anyhow::Result<()> {
                 })
                 .unwrap_or(false);
 
-            if is_json {
+            if is_json && is_tty {
                 // If the content-type header on the response suggests that the response is JSON,
                 // try to parse it as a generic Value, then pretty-print it with highlighting via
                 // syntect. If the parsing fails, give up on the pretty-printing and just print the
