@@ -21,7 +21,7 @@ url = "https://httpbin.org/get"
 method = "GET"
 ```
 
-Then try running `rhc -f ~/rhc/definitions/test.toml`. rhc will send a GET request to `https://httpbin.org/get`, and you should see the response, including the status code, headers, and body printed to stdout.
+Then try running `rhc ~/rhc/definitions/test.toml`. rhc will send a GET request to `https://httpbin.org/get`, and you should see the response, including the status code, headers, and body printed to stdout.
 
 #### Request
 The `request` table in the request definition file species the method and URL to use. Both are required. 
@@ -159,7 +159,7 @@ content = '''
 One way to bind variables is to use the `-b` or `--binding` command-line argument:
 
 ```
-$ rhc -b token=xyz -b something=12345 -f definition.toml
+$ rhc -b token=xyz -b something=12345 definition.toml
 ```
 
 The other ways to bind variables involve environments and rhc's interactive mode, which will be explained next.
@@ -178,7 +178,7 @@ variables = [
 You can specify an environment file to use with the `-e` or `--environment` argument:
 
 ```
-$ rhc -e staging.toml -f definition.toml
+$ rhc -e staging.toml definition.toml
 ```
 
 By doing so, all the variables defined in the environment file will be automatically bound, and specifying them via the command line is not necessary (although you can still do so, and bindings specified via the command line will take higher precedence).

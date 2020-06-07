@@ -6,8 +6,6 @@ use structopt::StructOpt;
 #[structopt(name = "rhc")]
 pub struct Args {
     #[structopt(
-        short,
-        long,
         parse(from_os_str),
         help = "The request definition file to use"
     )]

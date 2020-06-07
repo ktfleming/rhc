@@ -55,7 +55,6 @@ fn run(fixture: TestFixture) -> Assert {
         cmd.arg(env_file.path());
     }
 
-    cmd.arg("--file");
     cmd.arg(fixture.def_file.path());
 
     let assert = cmd.assert();
@@ -462,7 +461,6 @@ fn test_bindings_simple() -> anyhow::Result<()> {
 
     let mut cmd = Command::cargo_bin("main").unwrap();
 
-    cmd.arg("--file");
     cmd.arg(fixture.def_file.path());
 
     cmd.arg("--binding");
@@ -498,7 +496,6 @@ fn test_bindings_overwrite() -> anyhow::Result<()> {
 
     let mut cmd = Command::cargo_bin("main").unwrap();
 
-    cmd.arg("--file");
     cmd.arg(fixture.def_file.path());
 
     if let Some(env_file) = &fixture.env_file {
