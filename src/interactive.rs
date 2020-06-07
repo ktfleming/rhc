@@ -620,7 +620,6 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
                         state.query.clear();
                         write!(terminal.backend_mut(), "{}", Show)?;
                         if current_name_index >= names.len() {
-                            println!("Breaking...");
                             break;
                         }
                     }
