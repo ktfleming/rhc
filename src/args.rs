@@ -5,10 +5,7 @@ use structopt::StructOpt;
 #[derive(StructOpt, Debug)]
 #[structopt(name = "rhc")]
 pub struct Args {
-    #[structopt(
-        parse(from_os_str),
-        help = "The request definition file to use"
-    )]
+    #[structopt(parse(from_os_str), help = "The request definition file to use")]
     pub file: Option<PathBuf>,
 
     #[structopt(short, long, parse(from_os_str), help = "The environment file to use")]
