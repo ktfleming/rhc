@@ -198,7 +198,11 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
             let width = f.size().width;
             let height = f.size().height;
 
-            let num_items = filtered_choices.len() as u16;
+            // The maximum number of items we can display is limited by the height of the terminal
+            let list_rows = std::cmp::min(
+                filtered_choices.len() as u16,
+                height.checked_sub(1).unwrap_or(0),
+            );
             let items = filtered_choices
                 .iter()
                 // Have to make room for the highlight symbol, and a 1-column margin on the right
@@ -210,7 +214,7 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
                 .highlight_symbol(highlight_symbol);
 
             // The list of choices takes up the whole terminal except for the very bottom row
-            let list_rect = tui::layout::Rect::new(0, height - num_items - 1, width, num_items);
+            let list_rect = tui::layout::Rect::new(0, height - list_rows - 1, width, list_rows);
 
             f.render_stateful_widget(list, list_rect, &mut app_state.list_state);
 
@@ -246,7 +250,7 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
                 Key::Ctrl('u') => {
                     app_state.query.clear();
                 }
-                Key::Ctrl('k') | Key::Up => {
+                Key::Ctrl('p') | Key::Up => {
                     // Navigate up (increase selection index)
                     if let Some(selected) = app_state.list_state.selected() {
                         if selected < filtered_choices.len() - 1 {
@@ -254,7 +258,7 @@ pub fn interactive_mode<R: std::io::Read, B: tui::backend::Backend + std::io::Wr
                         }
                     }
                 }
-                Key::Ctrl('j') | Key::Down => {
+                Key::Ctrl('n') | Key::Down => {
                     // Navigate down (decrease selection index)
                     if let Some(selected) = app_state.list_state.selected() {
                         if selected > 0 {
@@ -348,7 +352,7 @@ impl PromptState {
     }
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Debug)]
 struct HistoryItem {
     name: String,
     value: String,
@@ -460,7 +464,9 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
             let mut matching_items: Vec<(isize, &HistoryItem)> = filtered_history_items
                 .iter()
                 .filter_map(|item| {
-                    best_match(&state.query, &item.value).map(|result| (result.score(), *item))
+                    let result =
+                        best_match(&state.query, &item.value).map(|result| (result.score(), *item));
+                    result
                 })
                 .collect();
 
@@ -471,7 +477,6 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
 
         state.list_state.select(state.active_history_item_index);
 
-        let num_items = filtered_history_items.len() as u16;
         let in_history_mode = state.active_history_item_index.is_some();
         let matching_history_items = filtered_history_items.iter().map(|item| {
             if in_history_mode {
@@ -497,8 +502,17 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
             let width = f.size().width;
             let height = f.size().height;
 
+            // Similar to selecting a request definition, the number of items we can display in the
+            // vertical list is limited by the terminal's height. We also need to reserve 2 rows
+            // for the explanation and query rows. Be careful not to run into overflow, as these
+            // are unsigned integers.
+            let list_rows = std::cmp::min(
+                filtered_history_items.len() as u16,
+                height.checked_sub(2).unwrap_or(0),
+            );
+
             // History selection box is all of the screen except the bottom 2 rows
-            let history_rect = tui::layout::Rect::new(0, height - num_items - 2, width, num_items);
+            let history_rect = tui::layout::Rect::new(0, height - list_rows - 2, width, list_rows);
             f.render_stateful_widget(list, history_rect, &mut state.list_state);
 
             // After that is the prompt/explanation row
@@ -550,14 +564,14 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
                         }
                     }
                 }
-                Key::Ctrl('k') | Key::Up => {
+                Key::Ctrl('p') | Key::Up => {
                     if let Some(i) = state.active_history_item_index {
                         if i < filtered_history_items.len() - 1 {
                             state.active_history_item_index = Some(i + 1);
                         }
                     }
                 }
-                Key::Ctrl('j') | Key::Down => {
+                Key::Ctrl('n') | Key::Down => {
                     if let Some(i) = state.active_history_item_index {
                         if i > 0 {
                             state.active_history_item_index = Some(i - 1);
@@ -582,7 +596,6 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
                         };
 
                         if !full_history.contains(&new_item) {
-                            // writeln!(history_file, "{}", new_item.format())?;
                             history_writer.write_record(&[
                                 answer.name.clone(),
                                 answer.value.clone(),

@@ -29,6 +29,8 @@ use termion::screen::AlternateScreen;
 use termion::AsyncReader;
 use tui::backend::TermionBackend;
 use tui::Terminal;
+// use simplelog::{CombinedLogger, WriteLogger, LevelFilter, Config as LogConfig};
+// use std::fs::File;
 
 fn main() {
     if let Err(e) = run() {
@@ -55,6 +57,11 @@ fn get_terminal() -> anyhow::Result<OurTerminal> {
 }
 
 fn run() -> anyhow::Result<()> {
+    // CombinedLogger::init(
+    //     vec![
+    //         WriteLogger::new(LevelFilter::Debug, LogConfig::default(), File::create("rhc.log").unwrap()),
+    //     ]
+    // ).unwrap();
     let args: Args = Args::from_args();
 
     // If the user specifies a config location, make sure there's actually a file there
@@ -110,7 +117,7 @@ fn run() -> anyhow::Result<()> {
     // None, and will be created on-demand if necessary (no request definition file provided, or
     // unbound variables exist).
     let mut keys: Option<Keys<AsyncReader>> = None;
-    let mut terminal: Option<Terminal<TermionBackend<AlternateScreen<RawTerminal<Stdout>>>>> = None;
+    let mut terminal: Option<OurTerminal> = None;
 
     // If the user specified a request definition file, just use that; otherwise, enter interactive
     // mode to allow them to choose a request definition. In either case, we need to keep track of
@@ -173,6 +180,8 @@ fn run() -> anyhow::Result<()> {
             for binding in bindings {
                 match vars.binary_search_by(|item| item.name.cmp(&binding.name)) {
                     Ok(index) => {
+                        // If variable is already present, overwrite it with the one passed on the
+                        // command line (these have the highest priority)
                         vars.remove(index);
                         vars.insert(index, binding);
                     }
@@ -260,7 +269,7 @@ fn run() -> anyhow::Result<()> {
                 })
                 .unwrap_or(false);
 
-            if is_json {
+            if is_json && is_tty {
                 // If the content-type header on the response suggests that the response is JSON,
                 // try to parse it as a generic Value, then pretty-print it with highlighting via
                 // syntect. If the parsing fails, give up on the pretty-printing and just print the

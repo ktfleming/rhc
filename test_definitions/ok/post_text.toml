@@ -1,7 +1,6 @@
 [request]
 method = "POST"
-url = "http://example.com"
-
+url = "https://httpbin.org/post"
 [body]
 type = "text"
 content = "a string"

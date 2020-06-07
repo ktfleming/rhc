@@ -48,33 +48,23 @@ impl From<&Option<CustomColors>> for Colors {
         let custom_colors = custom_colors.as_ref();
 
         Colors {
-            default_fg: parse_or_none(
-                custom_colors.and_then(|c| c.default_fg.as_deref()),
-            ),
-            default_bg: parse_or_none(
-                custom_colors.and_then(|c| c.default_bg.as_deref()),
-            ),
+            default_fg: parse_or_none(custom_colors.and_then(|c| c.default_fg.as_deref())),
+            default_bg: parse_or_none(custom_colors.and_then(|c| c.default_bg.as_deref())),
             selected_fg: parse_or_default(
                 custom_colors.and_then(|c| c.selected_fg.as_deref()),
                 Color::Green,
             ),
-            selected_bg: parse_or_none(
-                custom_colors.and_then(|c| c.selected_bg.as_deref()),
-            ),
+            selected_bg: parse_or_none(custom_colors.and_then(|c| c.selected_bg.as_deref())),
             prompt_fg: parse_or_default(
                 custom_colors.and_then(|c| c.prompt_fg.as_deref()),
                 Color::LightMagenta,
             ),
-            prompt_bg: parse_or_none(
-                custom_colors.and_then(|c| c.prompt_bg.as_deref()),
-            ),
+            prompt_bg: parse_or_none(custom_colors.and_then(|c| c.prompt_bg.as_deref())),
             variable_fg: parse_or_default(
                 custom_colors.and_then(|c| c.variable_fg.as_deref()),
                 Color::LightMagenta,
             ),
-            variable_bg: parse_or_none(
-                custom_colors.and_then(|c| c.variable_bg.as_deref())
-            ),
+            variable_bg: parse_or_none(custom_colors.and_then(|c| c.variable_bg.as_deref())),
         }
     }
 }
