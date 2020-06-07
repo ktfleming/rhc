@@ -13,7 +13,7 @@
 ### Request Definitions
 
 #### Basics
-Using rhc requires at least one "request definition" file. This type of file is in [TOML](https://github.com/toml-lang/toml) format and contains information about a single HTTP request you want to send (the URL, method, body, etc). As an example, try placing the following content at `~/rhc/definitions/test.toml`:
+Using rhc requires at least one "request definition" file. This type of file is in [TOML](https://github.com/toml-lang/toml) format and contains information about a single HTTP request you want to send (the URL, method, body, etc.). As an example, try placing the following content at `~/rhc/definitions/test.toml`:
 
 ```toml
 [request]
@@ -226,7 +226,7 @@ In interactive mode, rhc will initially display a list of all request definition
 
 You can type freely to filter the list, using fuzzy matching: (TODO: screenshot)
 
-Press ENTER to select the currently highlighted request definition file. Pressing TAB or Shift-TAB will change the currently selected environment, cycling through all environment files located in the base environments directory, which is `~/rhc/environments` by default. The name of the currently selected enviroment is displayed in the prompt. There are also a few more convenient key mappings you can use:
+Press ENTER to select the currently highlighted request definition file. Pressing TAB or Shift-TAB will change the currently selected environment, cycling through all environment files located in the base environments directory, which is `~/rhc/environments` by default. The name of the currently selected environment is displayed in the prompt. There are also a few more convenient key mappings you can use:
 
 - `Ctrl-c` will quit rhc without sending any request
 - `Ctrl-w` will cut to the start of the current word, Readline-style
@@ -279,6 +279,9 @@ timeout_seconds = 30
 # A theme to use to color JSON output. See below for more details.
 theme = "~/rhc/one-half-light.tmTheme"
 
+# Another way to sepcify a theme
+# theme = "base16-ocean.dark"
+
 # Various color settings. See below for more details.
 [colors]
 default_fg = "blue"
@@ -287,5 +290,18 @@ prompt_fg = "rgb(100, 150, 200)"
 ```
 
 #### Theme
+(rhc uses the [syntect](https://github.com/trishume/syntect) library for highlighting JSON output. The `theme` key in your config file can be either a string that maps to one of the [default syntect themes](https://docs.rs/syntect/4.2.0/syntect/highlighting/struct.ThemeSet.html#method.load_defaults), or a file path that contains a [Sublime Text syntax definition](http://www.sublimetext.com/docs/3/syntax.html#include-syntax). 
 
 #### Colors
+Various parts of the interactive rhc UI can be customized. The values can either be one of the basic terminal colors (`red`, `cyan`, `lightblue`, `lightmagents`, etc.), one of the extended 256 terminal colors (specified by number, e.g. `indexed(50)`), or an RGB color (specified like `rgb(10, 20, 30)`).
+
+The keys available to customize are:
+
+- `default_fg`: Foreground color for interactive choices that aren't selected
+- `default_bg`: Background color for interactive choices that aren't selected
+- `selected_fg`: Foreground color for interactive choices that are selected
+- `selected_bg`: Background color for interactive choices that are selected
+- `prompt_fg`: Foreground color for the prompt
+- `prompt_bg`: Background color for the prompt
+- `variable_fg`: Foreground color for unbound variables
+- `variable_bg`: Background color for unbound variables
