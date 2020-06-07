@@ -274,7 +274,7 @@ connect_timeout_seconds = 30
 read_timeout_seconds = 30
 
 # A timeout in seconds for the entire request (until the request body finishes
-# tranferring). Defaults to 30 seconds; set to 0 for no timeout.
+# tranferring). Defaults to no timeout.
 timeout_seconds = 30
 
 # A theme to use to color JSON output. See below for more details.
