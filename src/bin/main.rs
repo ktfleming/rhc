@@ -14,6 +14,7 @@ use serde_json::{to_string_pretty, Value};
 use spinners::{Spinner, Spinners};
 use std::borrow::Cow;
 use std::env;
+use std::fs::OpenOptions;
 use std::io::{Stdout, Write};
 use std::path::Path;
 use std::path::PathBuf;
@@ -31,6 +32,7 @@ use tui::backend::TermionBackend;
 use tui::Terminal;
 // use simplelog::{CombinedLogger, WriteLogger, LevelFilter, Config as LogConfig};
 // use std::fs::File;
+use std::io::{stdout, BufWriter};
 
 fn main() {
     if let Err(e) = run() {
@@ -64,6 +66,23 @@ fn run() -> anyhow::Result<()> {
     // ).unwrap();
     let args: Args = Args::from_args();
 
+    let output_file = args
+        .output_file
+        .map(|path_buf| {
+            OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(path_buf.as_path())
+        })
+        .transpose()?;
+
+    let writer: Box<dyn std::io::Write> = match &output_file {
+        Some(f) => Box::new(f),
+        None => Box::new(stdout()),
+    };
+
+    let mut writer = BufWriter::new(writer);
+
     // If the user specifies a config location, make sure there's actually a file there
     args.config.as_ref().map_or(Ok(()), |c| {
         if c.is_file() {
@@ -92,7 +111,11 @@ fn run() -> anyhow::Result<()> {
     let config_path = Path::new(config_location.as_ref());
 
     if args.verbose {
-        println!("Looking for config file at {}", config_path.display());
+        writeln!(
+            stdout(),
+            "Looking for config file at {}",
+            config_path.display()
+        )?;
     }
 
     let config = {
@@ -102,10 +125,11 @@ fn run() -> anyhow::Result<()> {
                 config_path.to_string_lossy()
             ))?
         } else {
-            println!(
+            writeln!(
+                stdout(),
                 "No config file found at {}, falling back to default config",
                 config_path.display()
-            );
+            )?;
             Config::default()
         }
     };
@@ -243,19 +267,19 @@ fn run() -> anyhow::Result<()> {
             let res = http::send_request(def, &config).context("Failed sending request")?;
             if let Some(s) = sp {
                 s.stop();
-                println!("\n");
+                writeln!(writer, "\n")?;
             }
 
             let headers = res.headers();
 
             if !(&args.only_body) {
-                println!("{}\n", res.status());
+                writeln!(writer, "{}\n", res.status())?;
                 for (name, value) in headers {
                     let value = value.to_str()?;
-                    println!("{}: {}", name.as_str(), value);
+                    writeln!(writer, "{}: {}", name.as_str(), value)?;
                 }
 
-                println!();
+                writeln!(writer)?;
             }
 
             let is_json = headers
@@ -269,7 +293,7 @@ fn run() -> anyhow::Result<()> {
                 })
                 .unwrap_or(false);
 
-            if is_json && is_tty {
+            if is_json && is_tty && output_file.is_none() {
                 // If the content-type header on the response suggests that the response is JSON,
                 // try to parse it as a generic Value, then pretty-print it with highlighting via
                 // syntect. If the parsing fails, give up on the pretty-printing and just print the
@@ -304,9 +328,9 @@ fn run() -> anyhow::Result<()> {
                         for line in LinesWithEndings::from(&body) {
                             let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
                             let escaped = as_24_bit_terminal_escaped(&ranges[..], false);
-                            print!("{}", escaped);
+                            writeln!(writer, "{}", escaped)?;
                         }
-                        println!();
+                        writeln!(writer)?;
                     }
                     Err(e) => {
                         eprintln!(
@@ -315,12 +339,12 @@ fn run() -> anyhow::Result<()> {
                             e
                         );
 
-                        println!("{}", body);
+                        writeln!(writer, "{}", body)?;
                     }
                 }
             } else {
                 let body = res.text()?;
-                println!("{}", body);
+                writeln!(writer, "{}", body)?;
             }
         }
     }

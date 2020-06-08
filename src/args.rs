@@ -11,7 +11,7 @@ pub struct Args {
     #[structopt(short, long, parse(from_os_str), help = "The environment file to use")]
     pub environment: Option<PathBuf>,
 
-    #[structopt(short, long, help = "Only print the response body to stdout")]
+    #[structopt(long, help = "Only print the response body to stdout")]
     pub only_body: bool,
 
     #[structopt(
@@ -26,4 +26,7 @@ pub struct Args {
 
     #[structopt(short, long, help = "Print more detailed information")]
     pub verbose: bool,
+
+    #[structopt(short, long, help = "File to write output to instead of stdout")]
+    pub output_file: Option<PathBuf>,
 }
