@@ -548,9 +548,15 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
         if let Some(Ok(key)) = input {
             match key {
                 Key::Ctrl('c') => break,
-                Key::Ctrl('w') => cut_to_current_word_start(&mut state.query),
+                Key::Ctrl('w') => {
+                    if !in_history_mode {
+                        cut_to_current_word_start(&mut state.query)
+                    }
+                }
                 Key::Ctrl('u') => {
-                    state.query.clear();
+                    if !in_history_mode {
+                        state.query.clear();
+                    }
                 }
                 Key::Char('\t') | Key::BackTab => {
                     if in_history_mode {
@@ -625,9 +631,15 @@ pub fn prompt_for_variables<R: std::io::Read, B: tui::backend::Backend + std::io
                     }
                 }
                 Key::Backspace => {
-                    state.query.pop();
+                    if !in_history_mode {
+                        state.query.pop();
+                    }
                 }
-                Key::Char(c) => state.query.push(c),
+                Key::Char(c) => {
+                    if !in_history_mode {
+                        state.query.push(c)
+                    }
+                }
                 _ => {}
             }
         }
