@@ -1,5 +1,7 @@
 # rhc: Command-line HTTP client
 
+![Screenshot of interactive mode](screenshots/interactive_list.png)
+
 ## Introduction
 
 `rhc` is a command-line tool for storing and quickly dispatching HTTP requests. It fits well into a command-line/terminal-centric workflow, and is designed to allow you to select and dispatch a desired request as quickly as possible.
@@ -223,9 +225,13 @@ Running `rhc` without specifying a request definition file will open an interact
 ...
 ```
 
-In interactive mode, rhc will initially display a list of all request definition files it can find, along with their descriptions, if present: (TODO: screenshot)
+In interactive mode, rhc will initially display a list of all request definition files it can find, along with their descriptions, if present:
 
-You can type freely to filter the list, using fuzzy matching: (TODO: screenshot)
+![Screenshot of interactive mode](screenshots/interactive_list.png)
+
+You can type freely to filter the list, using fuzzy matching:
+
+![Screenshot of fuzzy filtering](screenshots/fuzzy_filtering.png)
 
 Press ENTER to select the currently highlighted request definition file. Pressing TAB or Shift-TAB will change the currently selected environment, cycling through all environment files located in the base environments directory, which is `~/rhc/environments` by default. The name of the currently selected environment is displayed in the prompt. There are also a few more convenient key mappings you can use:
 
@@ -237,9 +243,13 @@ Press ENTER to select the currently highlighted request definition file. Pressin
 
 #### Interactively binding variables
 
-rhc requires that all variables present in the selected request definition file be bound before sending. These bindings are taken first from the selected environment file, and then from the `--bind` / `-b` command-line argument (overwriting bindings in the environment file, if there are any overlaps). After this, if any unbound variables remain, you will be prompted to enter their values interactively: (TODO: screenshot)
+rhc requires that all variables present in the selected request definition file be bound before sending. These bindings are taken first from the selected environment file, and then from the `--bind` / `-b` command-line argument (overwriting bindings in the environment file, if there are any overlaps). After this, if any unbound variables remain, you will be prompted to enter their values interactively:
 
-rhc saves a history of what values you have bound to variables in the past, and will display a list of values previously used for the current (variable name, environment) pair. As you type, the displayed list will be filtered based on fuzzy-matching against what you have typed. Pressing ENTER will bind the current variable to what you have entered in the prompt. On the other hand, if you want to re-use a historical value, you can press TAB to switch from "entry mode" to "historical selection" mode, signified by the `>>` cursor appearing in the list of historical values. In this mode, pressing ENTER will bind the selected historical value, ignoring whatever is currently typed at the prompt. (TODO: screenshot)
+![Screenshot of entering a value](screenshots/enter_value.png)
+
+rhc saves a history of what values you have bound to variables in the past, and will display a list of values previously used for the current (variable name, environment) pair. As you type, the displayed list will be filtered based on fuzzy-matching against what you have typed. Pressing ENTER will bind the current variable to what you have entered in the prompt. On the other hand, if you want to re-use a historical value, you can press TAB to switch from "entry mode" to "historical selection" mode, signified by the `>>` cursor appearing in the list of historical values. In this mode, pressing ENTER will bind the selected historical value, ignoring whatever is currently typed at the prompt.
+
+![Screenshot of choosing a historical value](screenshots/history.png)
 
 Otherwise, the same key mappings described above apply here as well.
 
