@@ -4,6 +4,12 @@ version = "0.1.0"
 authors = ["Kevin Fleming <kvnflm@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
+description = "Command-line HTTP client"
+readme = "README.md"
+homepage = "https://github.com/ktfleming/rhc"
+repository = "https://github.com/ktfleming/rhc"
+keywords = ["cli", "http"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 anyhow = "1.0.28"
