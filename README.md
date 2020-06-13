@@ -243,7 +243,9 @@ Press ENTER to select the currently highlighted request definition file. Pressin
 
 #### Interactively binding variables
 
-rhc requires that all variables present in the selected request definition file be bound before sending. These bindings are taken first from the selected environment file, and then from the `--bind` / `-b` command-line argument (overwriting bindings in the environment file, if there are any overlaps). After this, if any unbound variables remain, you will be prompted to enter their values interactively: (TODO: screenshot)
+rhc requires that all variables present in the selected request definition file be bound before sending. These bindings are taken first from the selected environment file, and then from the `--bind` / `-b` command-line argument (overwriting bindings in the environment file, if there are any overlaps). After this, if any unbound variables remain, you will be prompted to enter their values interactively:
+
+![Screenshot of entering a value](screenshots/enter_value.png)
 
 rhc saves a history of what values you have bound to variables in the past, and will display a list of values previously used for the current (variable name, environment) pair. As you type, the displayed list will be filtered based on fuzzy-matching against what you have typed. Pressing ENTER will bind the current variable to what you have entered in the prompt. On the other hand, if you want to re-use a historical value, you can press TAB to switch from "entry mode" to "historical selection" mode, signified by the `>>` cursor appearing in the list of historical values. In this mode, pressing ENTER will bind the selected historical value, ignoring whatever is currently typed at the prompt. (TODO: screenshot)
 
