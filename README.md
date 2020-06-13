@@ -1,5 +1,7 @@
 # rhc: Command-line HTTP client
 
+![Screenshot of interactive mode](screenshots/interactive_list.png)
+
 ## Introduction
 
 `rhc` is a command-line tool for storing and quickly dispatching HTTP requests. It fits well into a command-line/terminal-centric workflow, and is designed to allow you to select and dispatch a desired request as quickly as possible.
@@ -227,7 +229,9 @@ In interactive mode, rhc will initially display a list of all request definition
 
 ![Screenshot of interactive mode](screenshots/interactive_list.png)
 
-You can type freely to filter the list, using fuzzy matching: (TODO: screenshot)
+You can type freely to filter the list, using fuzzy matching:
+
+![Screenshot of fuzzy filtering](screenshots/fuzzy_filtering.png)
 
 Press ENTER to select the currently highlighted request definition file. Pressing TAB or Shift-TAB will change the currently selected environment, cycling through all environment files located in the base environments directory, which is `~/rhc/environments` by default. The name of the currently selected environment is displayed in the prompt. There are also a few more convenient key mappings you can use:
 
