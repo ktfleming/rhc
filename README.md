@@ -225,7 +225,7 @@ Running `rhc` without specifying a request definition file will open an interact
 
 In interactive mode, rhc will initially display a list of all request definition files it can find, along with their descriptions, if present:
 
-[Screenshot of interactive mode](screenshots/interactive_list.png)
+![Screenshot of interactive mode](screenshots/interactive_list.png)
 
 You can type freely to filter the list, using fuzzy matching: (TODO: screenshot)
 
