@@ -15,7 +15,7 @@
 ### Request Definitions
 
 #### Basics
-Using rhc requires at least one "request definition" file. This type of file is in [TOML](https://github.com/toml-lang/toml) format and contains information about a single HTTP request you want to send (the URL, method, body, etc.). As an example, try placing the following content at `~/rhc/definitions/test.toml`:
+Using rhc requires at least one "request definition" file. This type of file is in [TOML](https://github.com/toml-lang/toml) format and contains information about a single HTTP request you want to send (the URL, method, body, etc.). As an example, try placing the following content in a file with the name `test.toml`:
 
 ```toml
 [request]
@@ -23,7 +23,7 @@ url = "https://httpbin.org/get"
 method = "GET"
 ```
 
-Then try running `rhc ~/rhc/definitions/test.toml`. rhc will send a GET request to `https://httpbin.org/get`, and you should see the response, including the status code, headers, and body printed to stdout.
+Then try running `rhc /path/to/test.toml`. rhc will send a GET request to `https://httpbin.org/get`, and you should see the response, including the status code, headers, and body, printed to stdout.
 
 Running `rhc --help` will show a brief description of available command-line arguments, most of which are explained more fully in this document.
 
