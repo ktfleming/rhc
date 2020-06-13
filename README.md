@@ -247,7 +247,9 @@ rhc requires that all variables present in the selected request definition file 
 
 ![Screenshot of entering a value](screenshots/enter_value.png)
 
-rhc saves a history of what values you have bound to variables in the past, and will display a list of values previously used for the current (variable name, environment) pair. As you type, the displayed list will be filtered based on fuzzy-matching against what you have typed. Pressing ENTER will bind the current variable to what you have entered in the prompt. On the other hand, if you want to re-use a historical value, you can press TAB to switch from "entry mode" to "historical selection" mode, signified by the `>>` cursor appearing in the list of historical values. In this mode, pressing ENTER will bind the selected historical value, ignoring whatever is currently typed at the prompt. (TODO: screenshot)
+rhc saves a history of what values you have bound to variables in the past, and will display a list of values previously used for the current (variable name, environment) pair. As you type, the displayed list will be filtered based on fuzzy-matching against what you have typed. Pressing ENTER will bind the current variable to what you have entered in the prompt. On the other hand, if you want to re-use a historical value, you can press TAB to switch from "entry mode" to "historical selection" mode, signified by the `>>` cursor appearing in the list of historical values. In this mode, pressing ENTER will bind the selected historical value, ignoring whatever is currently typed at the prompt.
+
+![Screenshot of choosing a historical value](screenshots/history.png)
 
 Otherwise, the same key mappings described above apply here as well.
 
