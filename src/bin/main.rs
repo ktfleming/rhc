@@ -328,7 +328,7 @@ fn run() -> anyhow::Result<()> {
                         for line in LinesWithEndings::from(&body) {
                             let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
                             let escaped = as_24_bit_terminal_escaped(&ranges[..], false);
-                            writeln!(writer, "{}", escaped)?;
+                            write!(writer, "{}", escaped)?;
                         }
                         writeln!(writer)?;
                     }
