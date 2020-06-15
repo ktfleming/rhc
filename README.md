@@ -8,7 +8,13 @@
 
 ## Installation
 
-(TODO)
+### With Cargo
+
+`cargo install rhc`
+
+### From binaries (Mac only)
+
+You can download binaries from the [Github releases page](https://github.com/ktfleming/rhc/releases). At the moment only binaries for macOS are available.
 
 ## Usage
 
