@@ -10,6 +10,9 @@ homepage = "https://github.com/ktfleming/rhc"
 repository = "https://github.com/ktfleming/rhc"
 keywords = ["cli", "http"]
 categories = ["command-line-utilities"]
+exclude = [
+  "screenshots/*",
+]
 
 [dependencies]
 anyhow = "1.0.28"
