@@ -4,7 +4,7 @@
 
 ## Introduction
 
-`rhc` is a command-line tool for storing and quickly dispatching HTTP requests. It fits well into a command-line/terminal-centric workflow, and is designed to allow you to select and dispatch a desired request as quickly as possible.
+`rhc` (Rust HTTP Client) is a command-line tool for storing and sending HTTP requests. It fits well into a command-line/terminal-centric workflow, and is designed to allow you to select and dispatch a desired request as quickly as possible, while keeping the requests themselves in simple, easily-editable files that can be checked into source control.
 
 ## Installation
 
