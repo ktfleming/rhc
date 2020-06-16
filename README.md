@@ -266,7 +266,7 @@ rhc will look for an optional configuration file, in this order:
 2. `$XDG_CONFIG_HOME/rhc/config.toml`, if `XDG_CONFIG_HOME `is defined
 3. `~/.config/rhc/config.toml, `if present
 
-If none of the above files are present, a default configuration will be used. Here's a sample config file with explanations of the settings and their default values:
+If none of the above files are present, a default configuration will be used. Here's a sample config file with explanations of the settings:
 
 ```TOML
 # The directory to scan for request definition files when run in interactive
@@ -293,11 +293,12 @@ read_timeout_seconds = 30
 # tranferring). Defaults to no timeout.
 timeout_seconds = 30
 
-# A theme to use to color JSON output. See below for more details.
-theme = "~/rhc/one-half-light.tmTheme"
+# A theme to use to color JSON output. See below for more details. Defaults
+# to the "base16-eighties.dark" theme.
+theme = "base16-eighties.dark"
 
-# Another way to sepcify a theme
-# theme = "base16-ocean.dark"
+# Another way to specify a theme
+# theme = "~/rhc/one-half-light.tmTheme"
 
 # Various color settings. See below for more details.
 [colors]
