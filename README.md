@@ -311,7 +311,7 @@ prompt_fg = "rgb(100, 150, 200)"
 (rhc uses the [syntect](https://github.com/trishume/syntect) library for highlighting JSON output. The `theme` key in your config file can be either a string that maps to one of the [default syntect themes](https://docs.rs/syntect/4.2.0/syntect/highlighting/struct.ThemeSet.html#method.load_defaults), or a file path that contains a [Sublime Text syntax definition](http://www.sublimetext.com/docs/3/syntax.html#include-syntax). If no theme is specified, the "base16-eighties.dark" theme included in syntect will be used.
 
 #### Colors
-Various parts of the interactive rhc UI can be customized. The values can either be one of the basic terminal colors (`red`, `cyan`, `lightblue`, `lightmagents`, etc.), one of the extended 256 terminal colors (specified by number, e.g. `indexed(50)`), or an RGB color (specified like `rgb(10, 20, 30)`).
+Various parts of the interactive rhc UI can be customized. The values can either be one of the basic terminal colors (`red`, `cyan`, `lightblue`, `lightmagenta`, etc.), one of the extended 256 terminal colors (specified by number, e.g. `indexed(50)`), or an RGB color (specified like `rgb(10, 20, 30)`).
 
 The keys available to customize are:
 
